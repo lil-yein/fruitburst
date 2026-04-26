@@ -26,7 +26,7 @@ Phase 1 (MVP) — in progress, built in checkpoints.
 - [x] CP0 — scaffold
 - [x] CP1 — webcam + tracking + crosshair
 - [x] CP2 — flick gesture
-- [ ] CP3 — fruit/bomb spawning + physics
+- [x] CP3 — fruit/bomb spawning + physics
 - [ ] CP4 — collision + lives + scoring
 - [ ] CP5 — difficulty + screens + local leaderboard
 

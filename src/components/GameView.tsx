@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { HandTracker, type HandSnapshot } from '../game/tracking';
 import { FlickDetector } from '../game/gesture';
-import { GESTURE, TRACKING } from '../game/config';
+import { AssetRegistry } from '../game/assets';
+import { Spawner, type SpawnRequest } from '../game/spawner';
+import { updateEntity } from '../game/physics';
+import {
+  isOffScreenBottom,
+  newEntityId,
+  type Entity,
+} from '../game/entities';
+import { GESTURE, PHYSICS, TRACKING } from '../game/config';
 import './GameView.css';
 
 type Status = 'asking' | 'loading' | 'ready' | 'error';
 
 const HAND_LOST_TIMEOUT_MS = 300;
 const SHOT_EFFECT_MS = 280;
+const MAX_DT_SEC = 0.05; // clamp dt across long frames (tab backgrounded etc.)
 
 type ShotEffect = { x: number; y: number; t: number };
 
@@ -20,6 +29,10 @@ export function GameView() {
   useEffect(() => {
     const tracker = new HandTracker();
     const flick = new FlickDetector();
+    const assets = new AssetRegistry();
+    const spawner = new Spawner();
+    const entities: Entity[] = [];
+
     let raf = 0;
     let stream: MediaStream | null = null;
     let cancelled = false;
@@ -42,7 +55,8 @@ export function GameView() {
         await video.play();
 
         setStatus('loading');
-        await tracker.init();
+        // Tracker model + image assets load in parallel.
+        await Promise.all([tracker.init(), assets.load()]);
         if (cancelled) return;
         setStatus('ready');
 
@@ -68,24 +82,28 @@ export function GameView() {
         let vxAtPeak = 0;
         let lastFiredBy: 'angular' | 'linear' | null = null;
 
+        let lastFrameMs = performance.now();
+
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
           if (video.readyState < 2) return;
 
+          const dt = Math.min((ts - lastFrameMs) / 1000, MAX_DT_SEC);
+          lastFrameMs = ts;
+
           const w = canvas.width;
           const h = canvas.height;
 
-          // Mirrored video as background.
+          // ── Background: mirrored video ─────────────────────────────
           ctx.save();
           ctx.scale(-1, 1);
           ctx.drawImage(video, -w, 0, w, h);
           ctx.restore();
 
+          // ── Hand tracking ──────────────────────────────────────────
           const snap: HandSnapshot | null = tracker.detect(video, ts);
           if (snap) {
             const { fingertip, wrist } = snap;
-
-            // Crosshair follows the absolute fingertip (mirrored).
             const targetX = (1 - fingertip.x) * w;
             const targetY = fingertip.y * h;
             if (!smoothed) {
@@ -97,9 +115,6 @@ export function GameView() {
             }
             lastSeenMs = ts;
 
-            // Flick detection works on rotation of the wrist→fingertip
-            // unit vector, so pure hand translation produces no signal
-            // even when MediaPipe landmarks are noisy under fast motion.
             const result = flick.push(
               fingertip.x,
               fingertip.y,
@@ -116,28 +131,53 @@ export function GameView() {
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
               flickCount++;
               lastFiredBy = result.firedBy;
+              // CP4 will resolve hits against entities here.
             }
           }
 
           const handLost = !smoothed || ts - lastSeenMs > HAND_LOST_TIMEOUT_MS;
           if (handLost) flick.reset();
 
-          // Expire old shot effects.
+          // ── Spawn + physics ────────────────────────────────────────
+          const requests = spawner.update(dt);
+          for (const req of requests) {
+            entities.push(buildEntity(req, w, h, dpr, assets));
+          }
+          const gravity = PHYSICS.gravity * dpr;
+          for (const e of entities) {
+            updateEntity(e, dt, gravity);
+            if (isOffScreenBottom(e, h)) {
+              if (!e.missed && e.kind === 'fruit') {
+                e.missed = true; // CP4: -0.5 lives here.
+              }
+              e.alive = false;
+            }
+          }
+          // Prune dead entities.
+          for (let i = entities.length - 1; i >= 0; i--) {
+            if (!entities[i].alive) entities.splice(i, 1);
+          }
+
+          // ── Render fruits/bombs ────────────────────────────────────
+          for (const e of entities) drawEntity(ctx, e);
+
+          // ── Shot effects ───────────────────────────────────────────
           for (let i = shots.length - 1; i >= 0; i--) {
             if (ts - shots[i].t > SHOT_EFFECT_MS) shots.splice(i, 1);
           }
-
-          // Draw shots beneath the crosshair.
           for (const s of shots) {
             drawShotEffect(ctx, s.x, s.y, (ts - s.t) / SHOT_EFFECT_MS, dpr);
           }
 
+          // ── Crosshair / banners / HUD ──────────────────────────────
           if (smoothed && !handLost) {
             drawCrosshair(ctx, smoothed.x, smoothed.y, dpr);
           }
           if (handLost) {
             drawHandLostBanner(ctx, w, h, dpr);
           }
+
+          drawGameTimer(ctx, w, dpr, spawner.getElapsed());
 
           if (GESTURE.debugHud) {
             drawDebugHud(ctx, dpr, {
@@ -178,7 +218,7 @@ export function GameView() {
       {status !== 'ready' && (
         <div className="status-overlay">
           {status === 'asking' && <p>Please allow webcam access to play.</p>}
-          {status === 'loading' && <p>Loading hand tracking…</p>}
+          {status === 'loading' && <p>Loading hand tracking + assets…</p>}
           {status === 'error' && (
             <>
               <p className="status-error">Webcam error</p>
@@ -192,6 +232,64 @@ export function GameView() {
       )}
     </div>
   );
+}
+
+// ─── Entity construction ─────────────────────────────────────────────
+
+function buildEntity(
+  req: SpawnRequest,
+  canvasW: number,
+  canvasH: number,
+  dpr: number,
+  assets: AssetRegistry
+): Entity {
+  const margin = PHYSICS.spawnEdgeMargin * dpr;
+  const x = margin + Math.random() * (canvasW - 2 * margin);
+  const size =
+    (req.kind === 'bomb' ? PHYSICS.bombSize : PHYSICS.fruitSize) * dpr;
+  const y = canvasH + size; // just below the bottom edge
+
+  // Launch velocity (upward). vy is negative; speedMultiplier scales magnitude.
+  const vyMin = PHYSICS.initialVyMin * dpr * req.speedMultiplier;
+  const vyMax = PHYSICS.initialVyMax * dpr * req.speedMultiplier;
+  const vy = vyMin + Math.random() * (vyMax - vyMin);
+
+  // Horizontal velocity biased toward screen center so far-edge spawns
+  // arc inward instead of leaving the screen immediately. Center bias
+  // mixes with random noise so trajectories still vary.
+  const vxRange = PHYSICS.initialVxRange * dpr * req.speedMultiplier;
+  const centerOffset = (x - canvasW / 2) / (canvasW / 2); // -1..+1
+  const vx =
+    -centerOffset * vxRange * 0.7 +
+    (Math.random() * 2 - 1) * vxRange * 0.3;
+
+  const angularVelocity = (Math.random() * 2 - 1) * PHYSICS.spinRange;
+
+  return {
+    id: newEntityId(),
+    kind: req.kind,
+    x,
+    y,
+    vx,
+    vy,
+    rotation: 0,
+    angularVelocity,
+    size,
+    image: req.kind === 'bomb' ? assets.bombImage() : assets.randomFruit(),
+    alive: true,
+    missed: false,
+  };
+}
+
+// ─── Drawing helpers ─────────────────────────────────────────────────
+
+function drawEntity(ctx: CanvasRenderingContext2D, e: Entity): void {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.rotate(e.rotation);
+  const half = e.size / 2;
+  ctx.drawImage(e.image, -half, -half, e.size, e.size);
+  ctx.restore();
 }
 
 function drawCrosshair(
@@ -237,7 +335,7 @@ function drawShotEffect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  age: number, // 0 (just fired) → 1 (about to expire)
+  age: number,
   dpr: number
 ): void {
   const eased = 1 - Math.pow(1 - age, 2);
@@ -245,7 +343,6 @@ function drawShotEffect(
   const alpha = 1 - age;
 
   ctx.save();
-  // Outer expanding ring.
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
@@ -254,7 +351,6 @@ function drawShotEffect(
   ctx.shadowBlur = 18 * dpr;
   ctx.stroke();
 
-  // Sparkle cross — Y2K vibe.
   const armLen = radius * 1.2;
   ctx.beginPath();
   ctx.moveTo(x - armLen, y);
@@ -300,6 +396,30 @@ function drawHandLostBanner(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, w / 2, boxY + boxH / 2);
+  ctx.restore();
+}
+
+function drawGameTimer(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  dpr: number,
+  elapsedSec: number
+): void {
+  const text = `${elapsedSec.toFixed(2)}s`;
+  ctx.save();
+  ctx.font = `700 ${48 * dpr}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // Pink glow drop-shadow for that Y2K title-card vibe.
+  ctx.shadowColor = 'rgba(255, 130, 200, 0.9)';
+  ctx.shadowBlur = 16 * dpr;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, w / 2, 28 * dpr);
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ff4fa6';
+  ctx.fillText(text, w / 2, 28 * dpr);
   ctx.restore();
 }
 

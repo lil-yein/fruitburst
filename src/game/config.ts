@@ -68,8 +68,9 @@ export const GESTURE = {
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
   hitRadius: 48,
-  // Show flick counter + live debug HUD during development.
-  debugHud: true,
+  // Show flick counter + live debug HUD during development. Flip to true
+  // to see live gesture metrics during gameplay (useful for retuning).
+  debugHud: false,
 } as const;
 
 export const TRACKING = {
@@ -78,12 +79,18 @@ export const TRACKING = {
   targetFps: 30,
 } as const;
 
+// Physics constants in CSS pixels (multiplied by devicePixelRatio at runtime
+// so visible motion is consistent across HiDPI / standard displays).
 export const PHYSICS = {
-  gravity: 1400,           // px / s^2
-  initialVyMin: -1100,     // px / s (upward)
-  initialVyMax: -1400,
-  initialVxRange: 350,     // ± horizontal velocity
-  spinRange: 4,            // rad / s
+  gravity: 1400,           // px / s^2 (downward)
+  initialVyMin: -1100,     // px / s (upward, weaker launch)
+  initialVyMax: -1400,     // px / s (upward, stronger launch)
+  initialVxRange: 350,     // ± px / s horizontal
+  spinRange: 4,            // rad / s ± rotation
+  fruitSize: 110,          // px diameter
+  bombSize: 110,           // px diameter
+  // Horizontal margin (px) from each edge for spawn x-positions.
+  spawnEdgeMargin: 80,
 } as const;
 
 // Difficulty curve from PRD §4.5. Times are in seconds.
