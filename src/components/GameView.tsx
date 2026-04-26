@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { HandTracker, type Fingertip } from '../game/tracking';
-import { TRACKING } from '../game/config';
+import { FlickDetector } from '../game/gesture';
+import { GESTURE, TRACKING } from '../game/config';
 import './GameView.css';
 
 type Status = 'asking' | 'loading' | 'ready' | 'error';
 
 const HAND_LOST_TIMEOUT_MS = 300;
+const SHOT_EFFECT_MS = 280;
+
+type ShotEffect = { x: number; y: number; t: number };
 
 export function GameView() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -15,6 +19,7 @@ export function GameView() {
 
   useEffect(() => {
     const tracker = new HandTracker();
+    const flick = new FlickDetector();
     let raf = 0;
     let stream: MediaStream | null = null;
     let cancelled = false;
@@ -52,9 +57,11 @@ export function GameView() {
         onResize();
         window.addEventListener('resize', onResize);
 
-        // Smoothed crosshair position in canvas pixels.
         let smoothed: { x: number; y: number } | null = null;
         let lastSeenMs = 0;
+        const shots: ShotEffect[] = [];
+        let flickCount = 0;
+        let peakVelocity = 0;
 
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
@@ -71,7 +78,6 @@ export function GameView() {
 
           const tip: Fingertip | null = tracker.detect(video, ts);
           if (tip) {
-            // Mirror X to match the displayed (mirrored) video.
             const targetX = (1 - tip.x) * w;
             const targetY = tip.y * h;
             if (!smoothed) {
@@ -82,15 +88,39 @@ export function GameView() {
               smoothed.y += (targetY - smoothed.y) * a;
             }
             lastSeenMs = ts;
+
+            // Push raw (unsmoothed) y into the flick detector — using the
+            // smoothed value would dampen the very spike we want to catch.
+            const result = flick.push(tip.y, ts);
+            peakVelocity = result.peakUpwardVelocity;
+            if (result.fired && smoothed) {
+              shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
+              flickCount++;
+            }
           }
 
           const handLost = !smoothed || ts - lastSeenMs > HAND_LOST_TIMEOUT_MS;
+          if (handLost) flick.reset();
+
+          // Expire old shot effects.
+          for (let i = shots.length - 1; i >= 0; i--) {
+            if (ts - shots[i].t > SHOT_EFFECT_MS) shots.splice(i, 1);
+          }
+
+          // Draw shots beneath the crosshair.
+          for (const s of shots) {
+            drawShotEffect(ctx, s.x, s.y, (ts - s.t) / SHOT_EFFECT_MS, dpr);
+          }
 
           if (smoothed && !handLost) {
             drawCrosshair(ctx, smoothed.x, smoothed.y, dpr);
           }
           if (handLost) {
             drawHandLostBanner(ctx, w, h, dpr);
+          }
+
+          if (GESTURE.debugHud) {
+            drawDebugHud(ctx, dpr, flickCount, peakVelocity);
           }
         };
         raf = requestAnimationFrame(loop);
@@ -119,12 +149,8 @@ export function GameView() {
       <canvas ref={canvasRef} className="game-canvas" />
       {status !== 'ready' && (
         <div className="status-overlay">
-          {status === 'asking' && (
-            <p>Please allow webcam access to play.</p>
-          )}
-          {status === 'loading' && (
-            <p>Loading hand tracking…</p>
-          )}
+          {status === 'asking' && <p>Please allow webcam access to play.</p>}
+          {status === 'loading' && <p>Loading hand tracking…</p>}
           {status === 'error' && (
             <>
               <p className="status-error">Webcam error</p>
@@ -149,7 +175,6 @@ function drawCrosshair(
   const r = 14 * dpr;
   ctx.save();
 
-  // Outer pink ring with glow.
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.strokeStyle = '#ff4fa6';
@@ -158,14 +183,12 @@ function drawCrosshair(
   ctx.shadowBlur = 14 * dpr;
   ctx.stroke();
 
-  // Inner white dot.
   ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.arc(x, y, r * 0.32, 0, Math.PI * 2);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
 
-  // Crosshair tick marks.
   ctx.beginPath();
   ctx.moveTo(x - r * 1.7, y);
   ctx.lineTo(x - r * 0.65, y);
@@ -179,6 +202,41 @@ function drawCrosshair(
   ctx.lineWidth = 2 * dpr;
   ctx.stroke();
 
+  ctx.restore();
+}
+
+function drawShotEffect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  age: number, // 0 (just fired) → 1 (about to expire)
+  dpr: number
+): void {
+  const eased = 1 - Math.pow(1 - age, 2);
+  const radius = (16 + eased * 70) * dpr;
+  const alpha = 1 - age;
+
+  ctx.save();
+  // Outer expanding ring.
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+  ctx.lineWidth = (4 - age * 3) * dpr;
+  ctx.shadowColor = `rgba(255, 130, 200, ${alpha})`;
+  ctx.shadowBlur = 18 * dpr;
+  ctx.stroke();
+
+  // Sparkle cross — Y2K vibe.
+  const armLen = radius * 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x - armLen, y);
+  ctx.lineTo(x + armLen, y);
+  ctx.moveTo(x, y - armLen);
+  ctx.lineTo(x, y + armLen);
+  ctx.strokeStyle = `rgba(255, 220, 240, ${alpha * 0.7})`;
+  ctx.lineWidth = 2 * dpr;
+  ctx.shadowBlur = 0;
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -214,5 +272,40 @@ function drawHandLostBanner(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, w / 2, boxY + boxH / 2);
+  ctx.restore();
+}
+
+function drawDebugHud(
+  ctx: CanvasRenderingContext2D,
+  dpr: number,
+  flicks: number,
+  peakVelocity: number
+): void {
+  ctx.save();
+  ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  const lines = [
+    `flicks: ${flicks}`,
+    `peak ↑vel: ${peakVelocity.toFixed(2)} u/s`,
+  ];
+  const padX = 12 * dpr;
+  const padY = 8 * dpr;
+  const lineH = 18 * dpr;
+  const boxW = 200 * dpr;
+  const boxH = padY * 2 + lineH * lines.length;
+  const x = 16 * dpr;
+  const y = 16 * dpr;
+
+  ctx.fillStyle = 'rgba(26, 12, 28, 0.65)';
+  ctx.beginPath();
+  ctx.roundRect(x, y, boxW, boxH, 10 * dpr);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffd6ec';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x + padX, y + padY + i * lineH);
+  }
   ctx.restore();
 }

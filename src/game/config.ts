@@ -9,12 +9,15 @@ export const LIVES = {
 export const GESTURE = {
   // Rolling window of fingertip positions used to detect a flick-up.
   windowFrames: 6,
-  // Normalized upward velocity threshold (negative because y axis grows downward).
-  // Tune in CP2 against real webcam input.
-  flickVelocityThreshold: -0.04,
+  // Upward-velocity threshold in normalized-y units per second (negative = upward,
+  // since image y grows downward). -2.5 ≈ traversing 2.5× frame heights / sec.
+  // Tune against real webcam input.
+  flickVelocityThreshold: -2.5,
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
   hitRadius: 48,
+  // Show flick counter + last-velocity debug HUD during development.
+  debugHud: true,
 } as const;
 
 export const TRACKING = {
