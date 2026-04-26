@@ -50,16 +50,20 @@ export const GESTURE = {
   // gate.
 
   // Peak upward fingertip velocity required, in normalized-y / sec
-  // (negative; image y grows downward).
-  linearBurstThreshold: -3.5,
+  // (negative; image y grows downward). Lower magnitude lets weaker
+  // flicks fire (e.g. corner aiming where part of the motion is
+  // horizontal along the finger axis).
+  linearBurstThreshold: -2.8,
   // After the peak, the most recent vy must be at most this fraction
   // (in magnitude) of the peak. 0.5 = "decelerated to <50% of peak
   // speed." Sustained translation fails this check.
   linearBurstRecoveryRatio: 0.5,
   // At the peak instant, |vy| must be at least this multiple of |vx|
   // so a fast horizontal swing (which can produce incidental upward
-  // motion via wrist arc) does not register.
-  linearBurstVerticalityRatio: 1.5,
+  // motion via wrist arc) does not register. 1.2 still rejects pure
+  // horizontal swings (ratio < 1) while allowing diagonal flicks
+  // (ratio ≈ 1.4 for a 55°-from-horizontal flick).
+  linearBurstVerticalityRatio: 1.2,
 
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
