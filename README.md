@@ -24,7 +24,7 @@ Open the URL Vite prints. Allow webcam access.
 Phase 1 (MVP) — in progress, built in checkpoints.
 
 - [x] CP0 — scaffold
-- [ ] CP1 — webcam + tracking + crosshair
+- [x] CP1 — webcam + tracking + crosshair
 - [ ] CP2 — flick gesture
 - [ ] CP3 — fruit/bomb spawning + physics
 - [ ] CP4 — collision + lives + scoring
