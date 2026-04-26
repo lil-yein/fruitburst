@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { HandTracker, type Fingertip } from '../game/tracking';
+import { HandTracker, type HandSnapshot } from '../game/tracking';
 import { FlickDetector } from '../game/gesture';
 import { GESTURE, TRACKING } from '../game/config';
 import './GameView.css';
@@ -77,10 +77,13 @@ export function GameView() {
           ctx.drawImage(video, -w, 0, w, h);
           ctx.restore();
 
-          const tip: Fingertip | null = tracker.detect(video, ts);
-          if (tip) {
-            const targetX = (1 - tip.x) * w;
-            const targetY = tip.y * h;
+          const snap: HandSnapshot | null = tracker.detect(video, ts);
+          if (snap) {
+            const { fingertip, wrist } = snap;
+
+            // Crosshair follows the absolute fingertip (mirrored).
+            const targetX = (1 - fingertip.x) * w;
+            const targetY = fingertip.y * h;
             if (!smoothed) {
               smoothed = { x: targetX, y: targetY };
             } else {
@@ -90,10 +93,13 @@ export function GameView() {
             }
             lastSeenMs = ts;
 
-            // Push raw (unsmoothed) coords into the flick detector — using
-            // the smoothed values would dampen the very spike we want to
-            // catch.
-            const result = flick.push(tip.x, tip.y, ts);
+            // Flick detection runs on the *fingertip-relative-to-wrist*
+            // vector, so translating the whole hand (e.g. raising it to
+            // aim higher) produces no signal. Only motion of the finger
+            // relative to the wrist counts.
+            const relX = fingertip.x - wrist.x;
+            const relY = fingertip.y - wrist.y;
+            const result = flick.push(relX, relY, ts);
             peakVy = result.peakUpwardVelocity;
             vxAtPeak = result.horizontalVelocityAtPeak;
             if (result.fired && smoothed) {
