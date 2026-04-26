@@ -38,19 +38,28 @@ export const GESTURE = {
   minHandSize: 0.04,
 
   // ─── Linear-burst-with-recovery detector (fallback) ─────────────────
-  // Catches "stab up" flicks where the finger is already pointing up and
-  // the angular detector can see no further rotation. Detects an *impulse
-  // pattern* on the relative wrist→fingertip y-velocity: a fast burst
-  // followed by a stop. Sustained hand translation has a burst with no
-  // recovery, so it does not fire.
+  // Catches flicks the angular detector misses — chiefly "stab up"
+  // gestures when the finger is already pointing up (no further upward
+  // rotation possible) and the user just briefly thrusts the whole hand
+  // upward. Watches *absolute* fingertip y-velocity (not relative to
+  // wrist), since in those gestures wrist and fingertip move together.
+  //
+  // Sustained hand translation has fast velocity but never decelerates
+  // (the hand keeps moving toward its target), so the recovery gate
+  // rejects it. Fast horizontal swings are rejected by the verticality
+  // gate.
 
-  // Peak required relative upward y-velocity in normalized-y / sec
+  // Peak upward fingertip velocity required, in normalized-y / sec
   // (negative; image y grows downward).
-  linearBurstThreshold: -4.0,
-  // After the peak, the most recent relative-y velocity must be at most
-  // this fraction (in magnitude) of the peak. 0.5 = "decelerated to
-  // <50% of peak speed." Sustained translation fails this check.
+  linearBurstThreshold: -3.5,
+  // After the peak, the most recent vy must be at most this fraction
+  // (in magnitude) of the peak. 0.5 = "decelerated to <50% of peak
+  // speed." Sustained translation fails this check.
   linearBurstRecoveryRatio: 0.5,
+  // At the peak instant, |vy| must be at least this multiple of |vx|
+  // so a fast horizontal swing (which can produce incidental upward
+  // motion via wrist arc) does not register.
+  linearBurstVerticalityRatio: 1.5,
 
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.

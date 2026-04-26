@@ -11,12 +11,14 @@
 // no further upward rotation available — that case is handled by:
 //
 // ── 2. Linear-burst-with-recovery detector (fallback) ───────────────
-// Looks at the relative wrist→fingertip y-velocity for an *impulse*
-// pattern: a fast upward burst followed by a stop (recovery). A real
-// flick has this pattern; sustained hand translation does not (the
-// hand keeps moving, so velocity stays high and recovery never
-// happens). This pattern is direction-agnostic so it works at any
-// finger orientation.
+// Looks at the *absolute* fingertip y-velocity for an *impulse* pattern:
+// a fast upward burst followed by a stop. Uses absolute (not relative)
+// velocity because when the finger is already pointing up the natural
+// flick is a whole-hand stab — wrist and fingertip move together, so
+// relative-y stays near zero and would miss the gesture.
+// Sustained hand translation has a burst but no recovery (the hand
+// keeps moving), so it doesn't fire. Fast horizontal swings are
+// rejected by a verticality gate.
 //
 // Both detectors share the same rolling window and a single debounce.
 
@@ -39,9 +41,10 @@ export type FlickResult = {
   // Angular metrics
   peakRotationRate: number;
   totalRotation: number;
-  // Linear-burst metrics
-  peakRelVy: number;
-  recentRelVy: number;
+  // Linear-burst metrics (absolute fingertip velocity)
+  peakAbsVy: number;
+  recentAbsVy: number;
+  vxAtPeak: number;
 };
 
 function unitVectorY(fx: number, fy: number, wx: number, wy: number): number | null {
@@ -93,38 +96,46 @@ export class FlickDetector {
       totalRotation > GESTURE.angularDisplacementThreshold;
 
     // ── Linear burst-with-recovery detector ──────────────────────────
-    // Compute relative-y velocity for each adjacent pair, find the
-    // peak (most-negative), then check that the most recent velocity
-    // has recovered substantially toward zero.
-    let peakRelVy = 0;
+    // Compute absolute fingertip vy/vx for each adjacent pair, find the
+    // peak (most-negative vy), then verify recovery and verticality.
+    let peakAbsVy = 0;
+    let vxAtPeak = 0;
     let peakIdx = -1;
-    let recentRelVy = 0;
-    const relVys: number[] = [];
+    let recentAbsVy = 0;
+    const absVys: number[] = [];
     for (let i = 1; i < this.buffer.length; i++) {
       const a = this.buffer[i - 1];
       const b = this.buffer[i];
       const dt = (b.t - a.t) / 1000;
       if (dt <= 0) {
-        relVys.push(0);
+        absVys.push(0);
         continue;
       }
-      const v = (b.fy - b.wy - (a.fy - a.wy)) / dt;
-      relVys.push(v);
-      if (v < peakRelVy) {
-        peakRelVy = v;
-        peakIdx = relVys.length - 1;
+      const vy = (b.fy - a.fy) / dt;
+      const vx = (b.fx - a.fx) / dt;
+      absVys.push(vy);
+      if (vy < peakAbsVy) {
+        peakAbsVy = vy;
+        vxAtPeak = vx;
+        peakIdx = absVys.length - 1;
       }
     }
-    if (relVys.length > 0) {
-      recentRelVy = relVys[relVys.length - 1];
+    if (absVys.length > 0) {
+      recentAbsVy = absVys[absVys.length - 1];
     }
-    // Peak must be in the past (need a later sample to evidence recovery)
-    // and the recent velocity must be much closer to zero than the peak.
+    // 1. Peak must be in the past (need a later sample for recovery proof).
+    // 2. Peak vy must clear the threshold (true burst, not aim adjustment).
+    // 3. Recent vy must be much closer to zero (decel evidence — kills
+    //    sustained translation).
+    // 4. Motion at the peak must be predominantly vertical (kills fast
+    //    horizontal swings whose wrist arc produces incidental vy).
     const linearFired =
       peakIdx >= 0 &&
-      peakIdx < relVys.length - 1 &&
-      peakRelVy < GESTURE.linearBurstThreshold &&
-      recentRelVy > peakRelVy * GESTURE.linearBurstRecoveryRatio;
+      peakIdx < absVys.length - 1 &&
+      peakAbsVy < GESTURE.linearBurstThreshold &&
+      recentAbsVy > peakAbsVy * GESTURE.linearBurstRecoveryRatio &&
+      Math.abs(peakAbsVy) >
+        GESTURE.linearBurstVerticalityRatio * Math.abs(vxAtPeak);
 
     const debounced = t - this.lastFlickAt < GESTURE.debounceMs;
     let firedBy: 'angular' | 'linear' | null = null;
@@ -140,8 +151,9 @@ export class FlickDetector {
       firedBy,
       peakRotationRate: peakRate,
       totalRotation,
-      peakRelVy,
-      recentRelVy,
+      peakAbsVy,
+      recentAbsVy,
+      vxAtPeak,
     };
   }
 

@@ -63,8 +63,9 @@ export function GameView() {
         let flickCount = 0;
         let peakRotationRate = 0;
         let totalRotation = 0;
-        let peakRelVy = 0;
-        let recentRelVy = 0;
+        let peakAbsVy = 0;
+        let recentAbsVy = 0;
+        let vxAtPeak = 0;
         let lastFiredBy: 'angular' | 'linear' | null = null;
 
         const loop = (ts: number) => {
@@ -108,8 +109,9 @@ export function GameView() {
             );
             peakRotationRate = result.peakRotationRate;
             totalRotation = result.totalRotation;
-            peakRelVy = result.peakRelVy;
-            recentRelVy = result.recentRelVy;
+            peakAbsVy = result.peakAbsVy;
+            recentAbsVy = result.recentAbsVy;
+            vxAtPeak = result.vxAtPeak;
             if (result.fired && smoothed) {
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
               flickCount++;
@@ -142,8 +144,9 @@ export function GameView() {
               flicks: flickCount,
               peakRotationRate,
               totalRotation,
-              peakRelVy,
-              recentRelVy,
+              peakAbsVy,
+              recentAbsVy,
+              vxAtPeak,
               lastFiredBy,
             });
           }
@@ -307,8 +310,9 @@ function drawDebugHud(
     flicks: number;
     peakRotationRate: number;
     totalRotation: number;
-    peakRelVy: number;
-    recentRelVy: number;
+    peakAbsVy: number;
+    recentAbsVy: number;
+    vxAtPeak: number;
     lastFiredBy: 'angular' | 'linear' | null;
   }
 ): void {
@@ -317,14 +321,20 @@ function drawDebugHud(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
+  const ratio =
+    Math.abs(s.vxAtPeak) > 0.001
+      ? (Math.abs(s.peakAbsVy) / Math.abs(s.vxAtPeak)).toFixed(2)
+      : '∞';
   const lines = [
     `flicks: ${s.flicks}  via: ${s.lastFiredBy ?? '—'}`,
     `── angular ──`,
     `peak ↑rot: ${s.peakRotationRate.toFixed(2)} /s`,
     `total ↑rot: ${s.totalRotation.toFixed(2)}`,
-    `── linear ──`,
-    `peak ↑vy: ${s.peakRelVy.toFixed(2)} u/s`,
-    `recent vy: ${s.recentRelVy.toFixed(2)} u/s`,
+    `── linear (abs) ──`,
+    `peak ↑vy: ${s.peakAbsVy.toFixed(2)} u/s`,
+    `recent vy: ${s.recentAbsVy.toFixed(2)} u/s`,
+    `vx@peak: ${s.vxAtPeak.toFixed(2)} u/s`,
+    `|vy|/|vx|: ${ratio}`,
   ];
   const padX = 12 * dpr;
   const padY = 8 * dpr;
