@@ -61,7 +61,8 @@ export function GameView() {
         let lastSeenMs = 0;
         const shots: ShotEffect[] = [];
         let flickCount = 0;
-        let peakVelocity = 0;
+        let peakVy = 0;
+        let vxAtPeak = 0;
 
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
@@ -89,10 +90,12 @@ export function GameView() {
             }
             lastSeenMs = ts;
 
-            // Push raw (unsmoothed) y into the flick detector — using the
-            // smoothed value would dampen the very spike we want to catch.
-            const result = flick.push(tip.y, ts);
-            peakVelocity = result.peakUpwardVelocity;
+            // Push raw (unsmoothed) coords into the flick detector — using
+            // the smoothed values would dampen the very spike we want to
+            // catch.
+            const result = flick.push(tip.x, tip.y, ts);
+            peakVy = result.peakUpwardVelocity;
+            vxAtPeak = result.horizontalVelocityAtPeak;
             if (result.fired && smoothed) {
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
               flickCount++;
@@ -120,7 +123,7 @@ export function GameView() {
           }
 
           if (GESTURE.debugHud) {
-            drawDebugHud(ctx, dpr, flickCount, peakVelocity);
+            drawDebugHud(ctx, dpr, flickCount, peakVy, vxAtPeak);
           }
         };
         raf = requestAnimationFrame(loop);
@@ -279,21 +282,28 @@ function drawDebugHud(
   ctx: CanvasRenderingContext2D,
   dpr: number,
   flicks: number,
-  peakVelocity: number
+  peakVy: number,
+  vxAtPeak: number
 ): void {
   ctx.save();
   ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
+  const ratio =
+    Math.abs(vxAtPeak) > 0.001
+      ? (Math.abs(peakVy) / Math.abs(vxAtPeak)).toFixed(2)
+      : '∞';
   const lines = [
     `flicks: ${flicks}`,
-    `peak ↑vel: ${peakVelocity.toFixed(2)} u/s`,
+    `peak ↑vy: ${peakVy.toFixed(2)} u/s`,
+    `vx@peak: ${vxAtPeak.toFixed(2)} u/s`,
+    `|vy|/|vx|: ${ratio}`,
   ];
   const padX = 12 * dpr;
   const padY = 8 * dpr;
   const lineH = 18 * dpr;
-  const boxW = 200 * dpr;
+  const boxW = 220 * dpr;
   const boxH = padY * 2 + lineH * lines.length;
   const x = 16 * dpr;
   const y = 16 * dpr;

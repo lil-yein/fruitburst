@@ -13,10 +13,15 @@ export const GESTURE = {
   // since image y grows downward). -2.5 ≈ traversing 2.5× frame heights / sec.
   // Tune against real webcam input.
   flickVelocityThreshold: -2.5,
+  // Verticality gate: at the moment of peak upward velocity, |vy| must be at
+  // least this multiple of |vx|. Prevents fast horizontal swings (where the
+  // wrist-pivot arc produces incidental upward motion) from registering as
+  // flicks. Higher = stricter "must point straight up".
+  verticalityRatio: 1.5,
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
   hitRadius: 48,
-  // Show flick counter + last-velocity debug HUD during development.
+  // Show flick counter + live velocity debug HUD during development.
   debugHud: true,
 } as const;
 
