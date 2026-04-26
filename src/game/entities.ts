@@ -32,7 +32,12 @@ export function newEntityId(): number {
   return nextEntityId++;
 }
 
-/** True when the entity has fully fallen past the bottom of the canvas. */
+/**
+ * True when the entity has fallen past the bottom of the canvas.
+ * Requires vy > 0 (falling) so freshly-spawned fruits — which start
+ * just below the bottom edge with negative vy — aren't culled before
+ * they arc into view.
+ */
 export function isOffScreenBottom(e: Entity, canvasH: number): boolean {
-  return e.y - e.size / 2 > canvasH;
+  return e.vy > 0 && e.y - e.size / 2 > canvasH;
 }
