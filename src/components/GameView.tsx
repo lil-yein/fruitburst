@@ -63,6 +63,9 @@ export function GameView() {
         let flickCount = 0;
         let peakRotationRate = 0;
         let totalRotation = 0;
+        let peakRelVy = 0;
+        let recentRelVy = 0;
+        let lastFiredBy: 'angular' | 'linear' | null = null;
 
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
@@ -105,9 +108,12 @@ export function GameView() {
             );
             peakRotationRate = result.peakRotationRate;
             totalRotation = result.totalRotation;
+            peakRelVy = result.peakRelVy;
+            recentRelVy = result.recentRelVy;
             if (result.fired && smoothed) {
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
               flickCount++;
+              lastFiredBy = result.firedBy;
             }
           }
 
@@ -132,7 +138,14 @@ export function GameView() {
           }
 
           if (GESTURE.debugHud) {
-            drawDebugHud(ctx, dpr, flickCount, peakRotationRate, totalRotation);
+            drawDebugHud(ctx, dpr, {
+              flicks: flickCount,
+              peakRotationRate,
+              totalRotation,
+              peakRelVy,
+              recentRelVy,
+              lastFiredBy,
+            });
           }
         };
         raf = requestAnimationFrame(loop);
@@ -290,9 +303,14 @@ function drawHandLostBanner(
 function drawDebugHud(
   ctx: CanvasRenderingContext2D,
   dpr: number,
-  flicks: number,
-  peakRate: number,
-  totalRotation: number
+  s: {
+    flicks: number;
+    peakRotationRate: number;
+    totalRotation: number;
+    peakRelVy: number;
+    recentRelVy: number;
+    lastFiredBy: 'angular' | 'linear' | null;
+  }
 ): void {
   ctx.save();
   ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
@@ -300,14 +318,18 @@ function drawDebugHud(
   ctx.textBaseline = 'top';
 
   const lines = [
-    `flicks: ${flicks}`,
-    `peak ↑rot: ${peakRate.toFixed(2)} /s`,
-    `total ↑rot: ${totalRotation.toFixed(2)}`,
+    `flicks: ${s.flicks}  via: ${s.lastFiredBy ?? '—'}`,
+    `── angular ──`,
+    `peak ↑rot: ${s.peakRotationRate.toFixed(2)} /s`,
+    `total ↑rot: ${s.totalRotation.toFixed(2)}`,
+    `── linear ──`,
+    `peak ↑vy: ${s.peakRelVy.toFixed(2)} u/s`,
+    `recent vy: ${s.recentRelVy.toFixed(2)} u/s`,
   ];
   const padX = 12 * dpr;
   const padY = 8 * dpr;
   const lineH = 18 * dpr;
-  const boxW = 220 * dpr;
+  const boxW = 240 * dpr;
   const boxH = padY * 2 + lineH * lines.length;
   const x = 16 * dpr;
   const y = 16 * dpr;

@@ -1,23 +1,24 @@
 // Flick-up gesture detection.
 //
-// We detect *rotation* of the index finger toward "pointing up", not linear
-// motion of the fingertip. Pure hand translation (e.g. raising the hand to
-// aim higher) doesn't rotate the finger at all, so rotation-based detection
-// is intrinsically immune to translation — even when MediaPipe's per-frame
-// landmark predictions are noisy under fast motion.
+// Two detectors run in parallel; either firing counts as a flick.
 //
-// Each frame we sample the unit vector from wrist → fingertip. Its y
-// component (unitY) measures finger elevation: -1 = straight up,
-// 0 = horizontal, +1 = straight down. A flick reduces unitY.
+// ── 1. Angular detector (primary) ───────────────────────────────────
+// Watches the unit vector from wrist → fingertip and looks for fast
+// upward rotation. Translation of the whole hand mathematically cannot
+// rotate this vector, so even noisy MediaPipe predictions during fast
+// translation can't fire it.
+// Limitation: when the finger is already pointing straight up, there's
+// no further upward rotation available — that case is handled by:
 //
-// Two gates must both pass for a flick to fire:
+// ── 2. Linear-burst-with-recovery detector (fallback) ───────────────
+// Looks at the relative wrist→fingertip y-velocity for an *impulse*
+// pattern: a fast upward burst followed by a stop (recovery). A real
+// flick has this pattern; sustained hand translation does not (the
+// hand keeps moving, so velocity stays high and recovery never
+// happens). This pattern is direction-agnostic so it works at any
+// finger orientation.
 //
-//   1. Peak per-step upward rotation rate (− d unitY / dt) exceeds
-//      `angularRateThreshold`. Catches the snap.
-//   2. Total upward rotation over the window (− Δ unitY) exceeds
-//      `angularDisplacementThreshold`. Rejects single-frame noise spikes.
-//
-// Plus a debounce window between flicks.
+// Both detectors share the same rolling window and a single debounce.
 
 import { GESTURE } from './config';
 
@@ -27,17 +28,20 @@ type Sample = {
   /** wrist x */                                wx: number;
   /** wrist y */                                wy: number;
   /** timestamp in ms */                        t: number;
-  /** y-component of the unit wrist→tip vector at this sample, or null
-   *  if the hand vector was too short to measure reliably */
+  /** y-component of the unit wrist→tip vector, or null if hand vector
+   *  is too short to measure reliably */
   unitY: number | null;
 };
 
 export type FlickResult = {
   fired: boolean;
-  /** Peak per-step upward rotation rate in 1/s. Positive = rotating up. */
+  firedBy: 'angular' | 'linear' | null;
+  // Angular metrics
   peakRotationRate: number;
-  /** Total upward rotation over window. Positive = rotated up overall. */
   totalRotation: number;
+  // Linear-burst metrics
+  peakRelVy: number;
+  recentRelVy: number;
 };
 
 function unitVectorY(fx: number, fy: number, wx: number, wy: number): number | null {
@@ -59,23 +63,19 @@ export class FlickDetector {
       this.buffer.shift();
     }
 
+    // ── Angular detector ─────────────────────────────────────────────
     let peakRate = 0;
     let totalRotation = 0;
-
     if (this.buffer.length >= 2) {
-      // Peak per-step upward rotation rate.
       for (let i = 1; i < this.buffer.length; i++) {
         const a = this.buffer[i - 1];
         const b = this.buffer[i];
         if (a.unitY === null || b.unitY === null) continue;
         const dt = (b.t - a.t) / 1000;
         if (dt <= 0) continue;
-        // Positive rate = unitY decreased = rotated upward.
         const rate = (a.unitY - b.unitY) / dt;
         if (rate > peakRate) peakRate = rate;
       }
-
-      // Total rotation across the window (oldest valid → newest valid).
       let oldestUy: number | null = null;
       let newestUy: number | null = null;
       for (const s of this.buffer) {
@@ -88,17 +88,60 @@ export class FlickDetector {
         totalRotation = oldestUy - newestUy;
       }
     }
+    const angularFired =
+      peakRate > GESTURE.angularRateThreshold &&
+      totalRotation > GESTURE.angularDisplacementThreshold;
+
+    // ── Linear burst-with-recovery detector ──────────────────────────
+    // Compute relative-y velocity for each adjacent pair, find the
+    // peak (most-negative), then check that the most recent velocity
+    // has recovered substantially toward zero.
+    let peakRelVy = 0;
+    let peakIdx = -1;
+    let recentRelVy = 0;
+    const relVys: number[] = [];
+    for (let i = 1; i < this.buffer.length; i++) {
+      const a = this.buffer[i - 1];
+      const b = this.buffer[i];
+      const dt = (b.t - a.t) / 1000;
+      if (dt <= 0) {
+        relVys.push(0);
+        continue;
+      }
+      const v = (b.fy - b.wy - (a.fy - a.wy)) / dt;
+      relVys.push(v);
+      if (v < peakRelVy) {
+        peakRelVy = v;
+        peakIdx = relVys.length - 1;
+      }
+    }
+    if (relVys.length > 0) {
+      recentRelVy = relVys[relVys.length - 1];
+    }
+    // Peak must be in the past (need a later sample to evidence recovery)
+    // and the recent velocity must be much closer to zero than the peak.
+    const linearFired =
+      peakIdx >= 0 &&
+      peakIdx < relVys.length - 1 &&
+      peakRelVy < GESTURE.linearBurstThreshold &&
+      recentRelVy > peakRelVy * GESTURE.linearBurstRecoveryRatio;
 
     const debounced = t - this.lastFlickAt < GESTURE.debounceMs;
-    const fastEnough = peakRate > GESTURE.angularRateThreshold;
-    const sustainedEnough = totalRotation > GESTURE.angularDisplacementThreshold;
-    const triggered = !debounced && fastEnough && sustainedEnough;
+    let firedBy: 'angular' | 'linear' | null = null;
+    if (!debounced) {
+      if (angularFired) firedBy = 'angular';
+      else if (linearFired) firedBy = 'linear';
+    }
+    const triggered = firedBy !== null;
     if (triggered) this.lastFlickAt = t;
 
     return {
       fired: triggered,
+      firedBy,
       peakRotationRate: peakRate,
       totalRotation,
+      peakRelVy,
+      recentRelVy,
     };
   }
 

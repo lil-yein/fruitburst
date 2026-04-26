@@ -7,29 +7,50 @@ export const LIVES = {
 } as const;
 
 export const GESTURE = {
-  // Rolling window of samples used by the angular flick detector.
+  // Rolling window of samples used by both flick detectors.
   windowFrames: 6,
 
-  // The detector watches the unit vector from wrist → fingertip and looks
-  // for fast upward rotation. Translation of the whole hand cancels (the
-  // unit vector is unchanged), so only real finger/wrist rotation fires.
+  // ─── Angular detector (primary) ─────────────────────────────────────
+  // Watches the unit vector from wrist → fingertip and looks for fast
+  // upward rotation. Translation of the whole hand cancels (the unit
+  // vector is mathematically unchanged), so only real finger/wrist
+  // rotation can fire it.
   //
-  // unitY is the y-component of that unit vector. In image coords (y grows
-  // downward), -1 = pointing straight up, 0 = horizontal, +1 = pointing
-  // straight down. A flick reduces unitY (rotates upward).
+  // unitY is the y-component of that unit vector: -1 = pointing straight
+  // up, 0 = horizontal, +1 = pointing straight down (image y grows down).
+  // A flick reduces unitY.
+  //
+  // Limitation: when the finger is already pointing up (unitY near -1),
+  // there is no further upward rotation available. The linear-burst
+  // detector below handles that case.
 
   // Peak per-step upward-rotation rate (− d unitY / dt) required to fire,
   // in 1/sec. ~4.0 means the finger's elevation rotates fast enough to go
   // from horizontal to fully-up in 250ms.
   angularRateThreshold: 4.0,
-  // Minimum total upward rotation over the whole window (− Δ unitY).
+  // Minimum total upward rotation over the window (− Δ unitY).
   // ~0.3 ≈ at least ~17° of rotation if starting from horizontal.
   // Prevents single-frame noise spikes from firing.
   angularDisplacementThreshold: 0.3,
   // Below this normalized hand-vector length the wrist→fingertip vector is
   // too short to measure direction reliably (hand small in frame, finger
-  // curled, etc.). Skip detection when below.
+  // curled, foreshortening). Skip angular detection when below.
   minHandSize: 0.04,
+
+  // ─── Linear-burst-with-recovery detector (fallback) ─────────────────
+  // Catches "stab up" flicks where the finger is already pointing up and
+  // the angular detector can see no further rotation. Detects an *impulse
+  // pattern* on the relative wrist→fingertip y-velocity: a fast burst
+  // followed by a stop. Sustained hand translation has a burst with no
+  // recovery, so it does not fire.
+
+  // Peak required relative upward y-velocity in normalized-y / sec
+  // (negative; image y grows downward).
+  linearBurstThreshold: -4.0,
+  // After the peak, the most recent relative-y velocity must be at most
+  // this fraction (in magnitude) of the peak. 0.5 = "decelerated to
+  // <50% of peak speed." Sustained translation fails this check.
+  linearBurstRecoveryRatio: 0.5,
 
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
