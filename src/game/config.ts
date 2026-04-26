@@ -7,21 +7,34 @@ export const LIVES = {
 } as const;
 
 export const GESTURE = {
-  // Rolling window of fingertip positions used to detect a flick-up.
+  // Rolling window of samples used by the angular flick detector.
   windowFrames: 6,
-  // Upward-velocity threshold in normalized-y units per second (negative = upward,
-  // since image y grows downward). -2.5 ≈ traversing 2.5× frame heights / sec.
-  // Tune against real webcam input.
-  flickVelocityThreshold: -2.5,
-  // Verticality gate: at the moment of peak upward velocity, |vy| must be at
-  // least this multiple of |vx|. Prevents fast horizontal swings (where the
-  // wrist-pivot arc produces incidental upward motion) from registering as
-  // flicks. Higher = stricter "must point straight up".
-  verticalityRatio: 1.5,
+
+  // The detector watches the unit vector from wrist → fingertip and looks
+  // for fast upward rotation. Translation of the whole hand cancels (the
+  // unit vector is unchanged), so only real finger/wrist rotation fires.
+  //
+  // unitY is the y-component of that unit vector. In image coords (y grows
+  // downward), -1 = pointing straight up, 0 = horizontal, +1 = pointing
+  // straight down. A flick reduces unitY (rotates upward).
+
+  // Peak per-step upward-rotation rate (− d unitY / dt) required to fire,
+  // in 1/sec. ~4.0 means the finger's elevation rotates fast enough to go
+  // from horizontal to fully-up in 250ms.
+  angularRateThreshold: 4.0,
+  // Minimum total upward rotation over the whole window (− Δ unitY).
+  // ~0.3 ≈ at least ~17° of rotation if starting from horizontal.
+  // Prevents single-frame noise spikes from firing.
+  angularDisplacementThreshold: 0.3,
+  // Below this normalized hand-vector length the wrist→fingertip vector is
+  // too short to measure direction reliably (hand small in frame, finger
+  // curled, etc.). Skip detection when below.
+  minHandSize: 0.04,
+
   debounceMs: 200,
   // Forgiveness radius (in pixels) around crosshair when resolving a flick hit.
   hitRadius: 48,
-  // Show flick counter + live velocity debug HUD during development.
+  // Show flick counter + live debug HUD during development.
   debugHud: true,
 } as const;
 

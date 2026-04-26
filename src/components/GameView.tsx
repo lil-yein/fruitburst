@@ -61,8 +61,8 @@ export function GameView() {
         let lastSeenMs = 0;
         const shots: ShotEffect[] = [];
         let flickCount = 0;
-        let peakVy = 0;
-        let vxAtPeak = 0;
+        let peakRotationRate = 0;
+        let totalRotation = 0;
 
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
@@ -93,15 +93,18 @@ export function GameView() {
             }
             lastSeenMs = ts;
 
-            // Flick detection runs on the *fingertip-relative-to-wrist*
-            // vector, so translating the whole hand (e.g. raising it to
-            // aim higher) produces no signal. Only motion of the finger
-            // relative to the wrist counts.
-            const relX = fingertip.x - wrist.x;
-            const relY = fingertip.y - wrist.y;
-            const result = flick.push(relX, relY, ts);
-            peakVy = result.peakUpwardVelocity;
-            vxAtPeak = result.horizontalVelocityAtPeak;
+            // Flick detection works on rotation of the wrist→fingertip
+            // unit vector, so pure hand translation produces no signal
+            // even when MediaPipe landmarks are noisy under fast motion.
+            const result = flick.push(
+              fingertip.x,
+              fingertip.y,
+              wrist.x,
+              wrist.y,
+              ts
+            );
+            peakRotationRate = result.peakRotationRate;
+            totalRotation = result.totalRotation;
             if (result.fired && smoothed) {
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
               flickCount++;
@@ -129,7 +132,7 @@ export function GameView() {
           }
 
           if (GESTURE.debugHud) {
-            drawDebugHud(ctx, dpr, flickCount, peakVy, vxAtPeak);
+            drawDebugHud(ctx, dpr, flickCount, peakRotationRate, totalRotation);
           }
         };
         raf = requestAnimationFrame(loop);
@@ -288,23 +291,18 @@ function drawDebugHud(
   ctx: CanvasRenderingContext2D,
   dpr: number,
   flicks: number,
-  peakVy: number,
-  vxAtPeak: number
+  peakRate: number,
+  totalRotation: number
 ): void {
   ctx.save();
   ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  const ratio =
-    Math.abs(vxAtPeak) > 0.001
-      ? (Math.abs(peakVy) / Math.abs(vxAtPeak)).toFixed(2)
-      : '∞';
   const lines = [
     `flicks: ${flicks}`,
-    `peak ↑vy: ${peakVy.toFixed(2)} u/s`,
-    `vx@peak: ${vxAtPeak.toFixed(2)} u/s`,
-    `|vy|/|vx|: ${ratio}`,
+    `peak ↑rot: ${peakRate.toFixed(2)} /s`,
+    `total ↑rot: ${totalRotation.toFixed(2)}`,
   ];
   const padX = 12 * dpr;
   const padY = 8 * dpr;

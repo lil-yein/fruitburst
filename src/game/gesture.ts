@@ -1,75 +1,104 @@
 // Flick-up gesture detection.
 //
-// Strategy: maintain a small rolling window of fingertip (x, y) samples. On
-// each new sample, find the adjacent pair with the most-negative dy/dt
-// (i.e. the strongest single-frame upward burst) within the window. We fire
-// a flick only if:
-//   1. that vy is past the upward-velocity threshold, AND
-//   2. |vy| > verticalityRatio * |vx| at that same step (so a fast
-//      horizontal swing — which pivots the wrist and incidentally creates
-//      upward y-motion — does not register), AND
-//   3. we're past the debounce window.
+// We detect *rotation* of the index finger toward "pointing up", not linear
+// motion of the fingertip. Pure hand translation (e.g. raising the hand to
+// aim higher) doesn't rotate the finger at all, so rotation-based detection
+// is intrinsically immune to translation — even when MediaPipe's per-frame
+// landmark predictions are noisy under fast motion.
 //
-// Velocity is in normalized image-units per second so thresholds are
-// independent of frame size and frame rate. Image y grows downward, so
-// upward motion produces negative vy.
+// Each frame we sample the unit vector from wrist → fingertip. Its y
+// component (unitY) measures finger elevation: -1 = straight up,
+// 0 = horizontal, +1 = straight down. A flick reduces unitY.
+//
+// Two gates must both pass for a flick to fire:
+//
+//   1. Peak per-step upward rotation rate (− d unitY / dt) exceeds
+//      `angularRateThreshold`. Catches the snap.
+//   2. Total upward rotation over the window (− Δ unitY) exceeds
+//      `angularDisplacementThreshold`. Rejects single-frame noise spikes.
+//
+// Plus a debounce window between flicks.
 
 import { GESTURE } from './config';
 
-type Sample = { x: number; y: number; t: number };
+type Sample = {
+  /** fingertip x in normalized image coords */ fx: number;
+  /** fingertip y */                            fy: number;
+  /** wrist x */                                wx: number;
+  /** wrist y */                                wy: number;
+  /** timestamp in ms */                        t: number;
+  /** y-component of the unit wrist→tip vector at this sample, or null
+   *  if the hand vector was too short to measure reliably */
+  unitY: number | null;
+};
 
 export type FlickResult = {
   fired: boolean;
-  /** Most-negative vy observed in the window (units/sec). */
-  peakUpwardVelocity: number;
-  /** |vx| measured at the same step as peakUpwardVelocity. */
-  horizontalVelocityAtPeak: number;
+  /** Peak per-step upward rotation rate in 1/s. Positive = rotating up. */
+  peakRotationRate: number;
+  /** Total upward rotation over window. Positive = rotated up overall. */
+  totalRotation: number;
 };
+
+function unitVectorY(fx: number, fy: number, wx: number, wy: number): number | null {
+  const dx = fx - wx;
+  const dy = fy - wy;
+  const len = Math.hypot(dx, dy);
+  if (len < GESTURE.minHandSize) return null;
+  return dy / len;
+}
 
 export class FlickDetector {
   private buffer: Sample[] = [];
   private lastFlickAt = -Infinity;
 
-  /**
-   * Push a new fingertip sample.
-   * @param x Normalized x from MediaPipe (0..1).
-   * @param y Normalized y from MediaPipe (0..1).
-   * @param t Timestamp in ms.
-   */
-  push(x: number, y: number, t: number): FlickResult {
-    this.buffer.push({ x, y, t });
+  push(fx: number, fy: number, wx: number, wy: number, t: number): FlickResult {
+    const unitY = unitVectorY(fx, fy, wx, wy);
+    this.buffer.push({ fx, fy, wx, wy, t, unitY });
     if (this.buffer.length > GESTURE.windowFrames) {
       this.buffer.shift();
     }
 
-    let peakVy = 0;
-    let vxAtPeak = 0;
+    let peakRate = 0;
+    let totalRotation = 0;
 
     if (this.buffer.length >= 2) {
+      // Peak per-step upward rotation rate.
       for (let i = 1; i < this.buffer.length; i++) {
         const a = this.buffer[i - 1];
         const b = this.buffer[i];
+        if (a.unitY === null || b.unitY === null) continue;
         const dt = (b.t - a.t) / 1000;
         if (dt <= 0) continue;
-        const vy = (b.y - a.y) / dt;
-        if (vy < peakVy) {
-          peakVy = vy;
-          vxAtPeak = (b.x - a.x) / dt;
+        // Positive rate = unitY decreased = rotated upward.
+        const rate = (a.unitY - b.unitY) / dt;
+        if (rate > peakRate) peakRate = rate;
+      }
+
+      // Total rotation across the window (oldest valid → newest valid).
+      let oldestUy: number | null = null;
+      let newestUy: number | null = null;
+      for (const s of this.buffer) {
+        if (s.unitY !== null) {
+          if (oldestUy === null) oldestUy = s.unitY;
+          newestUy = s.unitY;
         }
+      }
+      if (oldestUy !== null && newestUy !== null) {
+        totalRotation = oldestUy - newestUy;
       }
     }
 
     const debounced = t - this.lastFlickAt < GESTURE.debounceMs;
-    const fastEnough = peakVy < GESTURE.flickVelocityThreshold;
-    const verticalEnough =
-      Math.abs(peakVy) > GESTURE.verticalityRatio * Math.abs(vxAtPeak);
-    const triggered = !debounced && fastEnough && verticalEnough;
+    const fastEnough = peakRate > GESTURE.angularRateThreshold;
+    const sustainedEnough = totalRotation > GESTURE.angularDisplacementThreshold;
+    const triggered = !debounced && fastEnough && sustainedEnough;
     if (triggered) this.lastFlickAt = t;
 
     return {
       fired: triggered,
-      peakUpwardVelocity: peakVy,
-      horizontalVelocityAtPeak: vxAtPeak,
+      peakRotationRate: peakRate,
+      totalRotation,
     };
   }
 
