@@ -177,7 +177,7 @@ export function GameView() {
             drawHandLostBanner(ctx, w, h, dpr);
           }
 
-          drawGameTimer(ctx, w, dpr, spawner.getElapsed());
+          drawGameTimer(ctx, w, dpr, spawner.getElapsed(), entities.length);
 
           if (GESTURE.debugHud) {
             drawDebugHud(ctx, dpr, {
@@ -288,7 +288,21 @@ function drawEntity(ctx: CanvasRenderingContext2D, e: Entity): void {
   ctx.translate(e.x, e.y);
   ctx.rotate(e.rotation);
   const half = e.size / 2;
-  ctx.drawImage(e.image, -half, -half, e.size, e.size);
+
+  const ready = e.image.complete && e.image.naturalWidth > 0;
+  if (ready) {
+    ctx.drawImage(e.image, -half, -half, e.size, e.size);
+  } else {
+    // Fallback: bright shape so we can still see the entity if the asset
+    // failed or hasn't decoded yet.
+    ctx.beginPath();
+    ctx.arc(0, 0, half, 0, Math.PI * 2);
+    ctx.fillStyle = e.kind === 'bomb' ? '#1a1a1a' : '#ff8fcd';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = e.kind === 'bomb' ? '#ff5050' : '#ffffff';
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -403,7 +417,8 @@ function drawGameTimer(
   ctx: CanvasRenderingContext2D,
   w: number,
   dpr: number,
-  elapsedSec: number
+  elapsedSec: number,
+  entityCount: number
 ): void {
   const text = `${elapsedSec.toFixed(2)}s`;
   ctx.save();
@@ -420,6 +435,11 @@ function drawGameTimer(
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#ff4fa6';
   ctx.fillText(text, w / 2, 28 * dpr);
+
+  // Diagnostic: live entity count under the timer (temporary).
+  ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(`active: ${entityCount}`, w / 2, 28 * dpr + 56 * dpr);
   ctx.restore();
 }
 
