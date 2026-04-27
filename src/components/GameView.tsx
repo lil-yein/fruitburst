@@ -181,9 +181,8 @@ export function GameView() {
               entities.push(buildEntity(req, w, h, dpr, assets));
             }
           }
-          const gravity = PHYSICS.gravity * dpr;
           for (const e of entities) {
-            updateEntity(e, dt, gravity);
+            updateEntity(e, dt);
             if (e.alive && isOffScreenBottom(e, h)) {
               // Off-screen unshot: fruits cost a life, bombs are correctly avoided.
               if (!gameState.gameOver) {
@@ -333,17 +332,27 @@ function buildEntity(
     (req.kind === 'bomb' ? PHYSICS.bombSize : PHYSICS.fruitSize) * dpr;
   const y = canvasH + size;
 
-  const vyMin = PHYSICS.initialVyMin * dpr * req.speedMultiplier;
-  const vyMax = PHYSICS.initialVyMax * dpr * req.speedMultiplier;
+  // Difficulty-tier "speedMultiplier" k compresses trajectory timing without
+  // changing arc shape. Mathematically: scaling velocity by k while scaling
+  // gravity by k² preserves apogee (= v²/2g unchanged) and horizontal reach,
+  // but the fruit traces the same arc in 1/k the time — i.e. it actually
+  // moves k× faster across the screen, which is the intended "faster
+  // fruits" feel. Without the k² gravity scaling, peak height grows like
+  // k², so a 1.7× tier launches fruits 2.9× higher and they fly off-screen.
+  const k = req.speedMultiplier;
+
+  const vyMin = PHYSICS.initialVyMin * dpr * k;
+  const vyMax = PHYSICS.initialVyMax * dpr * k;
   const vy = vyMin + Math.random() * (vyMax - vyMin);
 
-  const vxRange = PHYSICS.initialVxRange * dpr * req.speedMultiplier;
+  const vxRange = PHYSICS.initialVxRange * dpr * k;
   const centerOffset = (x - canvasW / 2) / (canvasW / 2);
   const vx =
     -centerOffset * vxRange * 0.7 +
     (Math.random() * 2 - 1) * vxRange * 0.3;
 
-  const angularVelocity = (Math.random() * 2 - 1) * PHYSICS.spinRange;
+  const gravity = PHYSICS.gravity * dpr * k * k;
+  const angularVelocity = (Math.random() * 2 - 1) * PHYSICS.spinRange * k;
 
   return {
     id: newEntityId(),
@@ -354,6 +363,7 @@ function buildEntity(
     vy,
     rotation: 0,
     angularVelocity,
+    gravity,
     size,
     image: req.kind === 'bomb' ? assets.bombImage() : assets.randomFruit(),
     alive: true,

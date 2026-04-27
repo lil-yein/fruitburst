@@ -17,7 +17,13 @@ export interface Entity {
   rotation: number;
   /** Spin rate in radians/sec. */
   angularVelocity: number;
-  /** Diameter in canvas pixels for rendering + hit-testing. */
+  /**
+   * Per-entity gravity (canvas px / s²). Set at spawn so different
+   * difficulty tiers can compress trajectory timing without changing the
+   * arc shape — see buildEntity in GameView for the k² scaling rationale.
+   */
+  gravity: number;
+  /** Longest render dimension in canvas pixels. */
   size: number;
   image: HTMLImageElement;
   /** false → ready for cleanup. Used after a hit (CP4) or when off-screen. */
