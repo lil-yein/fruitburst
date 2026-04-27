@@ -12,13 +12,14 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: var(--pink-500);
-  /* Outer pink chunky frame: inner shadow gives the rounded inset look. */
-  border-radius: 24px;
+  /* Solid pink fills the viewport edge-to-edge — no outer radius — and the
+     playfield's 24px border-radius cuts the rounded inner window. */
+  background: var(--pink-300);
 }
 
 /* The playfield: pink grid sitting inside the outer frame.
-   Inset by frame thickness so the chunky pink border shows around it. */
+   Inset by 30px so the chunky pink border shows around it. Inner corners
+   round at 24px per spec. */
 .playfield {
   position: absolute;
   inset: 30px;
@@ -28,7 +29,7 @@
     linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px);
   background-size: 64px 64px;
   background-position: 0 0;
-  border-radius: 14px;
+  border-radius: 24px;
   overflow: hidden;
 }
 
