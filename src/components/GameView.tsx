@@ -357,16 +357,10 @@ function Scoreboard({ level, lives }: { level: number; lives: number }) {
     else if (lives >= i + 0.5) hearts.push('half');
     else hearts.push('empty');
   }
-  const heartSrc = (k: 'full' | 'half' | 'empty') =>
-    `/assets/ui/heart-${k}.png`;
 
   return (
     <div className="scoreboard">
-      <div className="scoreboard-pearl-row top" />
-      <div className="scoreboard-pearl-row bottom" />
-      <div className="scoreboard-pearl-col left" />
-      <div className="scoreboard-pearl-col right" />
-      <div className="scoreboard-inner">
+      <div className="scoreboard-card">
         <div className="scoreboard-level">Level {level}</div>
         <div className="scoreboard-divider" />
         <div className="scoreboard-hp">
@@ -376,13 +370,40 @@ function Scoreboard({ level, lives }: { level: number; lives: number }) {
               <img
                 key={i}
                 className="scoreboard-heart"
-                src={heartSrc(kind)}
+                src={`/assets/ui/heart-${kind}.png`}
                 alt={kind === 'full' ? '♥' : kind === 'half' ? '◐' : '♡'}
               />
             ))}
           </div>
         </div>
       </div>
+      {/* Pearl border. Top/bottom rows include the corner pearls; left/right
+          cols sit between them. Centers align on the card's outer edge. */}
+      <PearlLine side="top" count={12} />
+      <PearlLine side="bottom" count={12} />
+      <PearlLine side="left" count={4} />
+      <PearlLine side="right" count={4} />
+    </div>
+  );
+}
+
+function PearlLine({
+  side,
+  count,
+}: {
+  side: 'top' | 'bottom' | 'left' | 'right';
+  count: number;
+}) {
+  return (
+    <div className={`scoreboard-pearls scoreboard-pearls--${side}`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <img
+          key={i}
+          className="pearl"
+          src="/assets/ui/silverball.png"
+          alt=""
+        />
+      ))}
     </div>
   );
 }
