@@ -1,6 +1,39 @@
+/* Webfont — Cafe24PROUP, the chunky pixel-friendly Korean Y2K display face. */
+@font-face {
+  font-family: 'Cafe24 PRO UP';
+  src:
+    url('/fonts/Cafe24PROUP.woff2') format('woff2'),
+    url('/fonts/Cafe24PROUP.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Y2K low-poly girl-game palette. */
+  --pink-50: #ffebef;
+  --pink-100: #ffd6e3;
+  --pink-200: #f7cad1;
+  --pink-300: #ec6f9d;
+  --pink-500: #ff4fa6;
+  --pink-700: #c52679;
+  --pink-900: #44082a;
+  --grid-line: rgba(255, 255, 255, 0.7);
+
+  --font-display: 'Cafe24 PRO UP', system-ui, sans-serif;
+}
+
 * { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
   margin: 0;
+}
+
+body {
+  background: var(--pink-200);
+  color: var(--pink-900);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

@@ -1,17 +1,35 @@
-.game-view {
+/*
+ * Game screen layout (Y2K low-poly girl-game).
+ *
+ * Two-layer architecture: the canvas is the playfield (entities, crosshair,
+ * effects), and HTML/CSS handles the static UI (frame, scoreboard, timer,
+ * webcam preview, modals). Lets us match the Figma design without trying
+ * to hand-render pixel borders on canvas.
+ */
+
+.game-frame {
   position: relative;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #1a0c1c;
+  background: var(--pink-500);
+  /* Outer pink chunky frame: inner shadow gives the rounded inset look. */
+  border-radius: 24px;
 }
 
-.hidden-video {
+/* The playfield: pink grid sitting inside the outer frame.
+   Inset by frame thickness so the chunky pink border shows around it. */
+.playfield {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  inset: 30px;
+  background-color: var(--pink-200);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: 0 0;
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .game-canvas {
@@ -22,6 +40,199 @@
   display: block;
 }
 
+/* ── Scoreboard (top-left) ──────────────────────────────────────────── */
+
+.scoreboard {
+  position: absolute;
+  top: 42px;
+  left: 42px;
+  width: 239px;
+  height: 120px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.scoreboard-inner {
+  position: absolute;
+  inset: 8px;
+  background: var(--pink-50);
+  border: 4px solid var(--pink-300);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  color: var(--pink-900);
+}
+
+.scoreboard-level {
+  padding: 14px 16px 10px;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: 0.5px;
+}
+
+.scoreboard-divider {
+  height: 4px;
+  background: var(--pink-300);
+}
+
+.scoreboard-hp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.scoreboard-hp-label {
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
+.scoreboard-hearts {
+  display: flex;
+  gap: 6px;
+}
+
+.scoreboard-heart {
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+  display: block;
+}
+
+/* Pearl borders — silver beads tiled around the scoreboard. */
+.scoreboard-pearl-row,
+.scoreboard-pearl-col {
+  position: absolute;
+  background-image: url('/assets/ui/silverball.png');
+  background-repeat: round;
+  image-rendering: pixelated;
+}
+
+.scoreboard-pearl-row {
+  height: 16px;
+  left: 0;
+  right: 0;
+  background-size: 20px 16px;
+}
+.scoreboard-pearl-row.top { top: 0; }
+.scoreboard-pearl-row.bottom { bottom: 0; }
+
+.scoreboard-pearl-col {
+  width: 16px;
+  top: 20px;
+  bottom: 20px;
+  background-size: 16px 22px;
+}
+.scoreboard-pearl-col.left { left: 0; }
+.scoreboard-pearl-col.right { right: 0; }
+
+/* ── Timer panel (top-center) ───────────────────────────────────────── */
+
+.timer-panel {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.timer-wing {
+  width: 100px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(255, 79, 166, 0.25));
+}
+
+.timer-wing.left { transform: scaleX(-1); }
+
+.timer-display {
+  position: relative;
+  background: var(--pink-50);
+  border: 4px solid var(--pink-500);
+  border-radius: 14px;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -24px; /* wings overlap slightly */
+  box-shadow: 0 4px 0 var(--pink-300);
+  font-family: var(--font-display);
+  color: var(--pink-900);
+}
+
+.timer-digits {
+  background: white;
+  border: 3px solid var(--pink-300);
+  border-radius: 8px;
+  padding: 2px 12px;
+  min-width: 64px;
+  text-align: center;
+  font-size: 32px;
+  letter-spacing: 2px;
+  line-height: 36px;
+}
+
+.timer-colon {
+  font-size: 32px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+/* ── Webcam preview (bottom-right) ──────────────────────────────────── */
+
+.webcam-preview {
+  position: absolute;
+  right: 50px;
+  bottom: 50px;
+  width: 240px;
+  height: 156px;
+  border: 4px solid white;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #1a0c1c;
+  box-shadow: 0 6px 0 rgba(255, 79, 166, 0.45);
+  z-index: 5;
+}
+
+.webcam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+/* ── Hand-lost banner ───────────────────────────────────────────────── */
+
+.hand-lost-banner {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--pink-500);
+  color: white;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  padding: 12px 28px;
+  border-radius: 18px;
+  border: 3px solid white;
+  box-shadow: 0 4px 0 var(--pink-700);
+  z-index: 6;
+  animation: hand-lost-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes hand-lost-pulse {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -4px); }
+}
+
+/* ── Status overlay (asking / loading / error) ──────────────────────── */
+
 .status-overlay {
   position: absolute;
   inset: 0;
@@ -29,10 +240,10 @@
   place-items: center;
   text-align: center;
   padding: 2rem;
-  background: linear-gradient(135deg, #ffd6ec 0%, #fff0f7 100%);
-  color: #6b2348;
-  font-family: system-ui, sans-serif;
-  pointer-events: none;
+  background: var(--pink-200);
+  color: var(--pink-900);
+  font-family: var(--font-display);
+  z-index: 10;
 }
 
 .status-overlay p {
@@ -44,10 +255,74 @@
 .status-error {
   font-weight: 700;
   font-size: 1.6rem !important;
-  text-shadow: 2px 2px 0 #fff, 4px 4px 0 #ff89c0;
+  color: var(--pink-700);
 }
 
 .status-detail {
   font-size: 1rem !important;
   opacity: 0.75;
+}
+
+/* ── Game-over modal ────────────────────────────────────────────────── */
+
+.game-over-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 5, 25, 0.45);
+  z-index: 20;
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.game-over-card {
+  background: var(--pink-50);
+  border: 4px solid var(--pink-500);
+  border-radius: 24px;
+  padding: 40px 56px;
+  text-align: center;
+  font-family: var(--font-display);
+  color: var(--pink-900);
+  box-shadow: 0 10px 0 var(--pink-700);
+  min-width: 420px;
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.game-over-title {
+  margin: 0 0 12px;
+  font-size: 36px;
+  letter-spacing: 2px;
+  color: var(--pink-500);
+}
+
+.game-over-time {
+  font-size: 56px;
+  letter-spacing: 4px;
+  margin: 8px 0 24px;
+}
+
+.game-over-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--pink-700);
+}
+
+.game-over-hint {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 1px;
 }

@@ -19,7 +19,8 @@ import {
   type Shake,
 } from '../game/effects';
 import { createGameState, damageLives, type GameState } from '../game/state';
-import { GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
+import { AudioSystem } from '../game/audio';
+import { DIFFICULTY, GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
 import './GameView.css';
 
 type Status = 'asking' | 'loading' | 'ready' | 'error';
@@ -27,22 +28,62 @@ type Status = 'asking' | 'loading' | 'ready' | 'error';
 const HAND_LOST_TIMEOUT_MS = 300;
 const SHOT_EFFECT_MS = 280;
 const MAX_DT_SEC = 0.05;
-const SHAKE_KICK_PX = 22; // css px; multiplied by dpr at runtime
-const PARTICLE_GRAVITY = 1500; // px/s² for burst particles (css; ×dpr)
+const SHAKE_KICK_PX = 22;
+const PARTICLE_GRAVITY = 1500;
 
 type ShotEffect = { x: number; y: number; t: number };
+
+type HudSnapshot = {
+  level: number;
+  elapsedSec: number;
+  lives: number;
+  gameOver: boolean;
+  fruitsBurst: number;
+  bombsHit: number;
+  bombsAvoided: number;
+  fruitsMissed: number;
+  flicksTotal: number;
+  flicksHit: number;
+  finalElapsedSec: number;
+  handLost: boolean;
+};
+
+const INITIAL_HUD: HudSnapshot = {
+  level: 1,
+  elapsedSec: 0,
+  lives: LIVES.start,
+  gameOver: false,
+  fruitsBurst: 0,
+  bombsHit: 0,
+  bombsAvoided: 0,
+  fruitsMissed: 0,
+  flicksTotal: 0,
+  flicksHit: 0,
+  finalElapsedSec: 0,
+  handLost: false,
+};
+
+function levelForElapsed(elapsedSec: number): number {
+  // Map difficulty tiers (untilSec boundaries) → user-facing 1-based level.
+  for (let i = 0; i < DIFFICULTY.length; i++) {
+    if (elapsedSec < DIFFICULTY[i].untilSec) return i + 1;
+  }
+  return DIFFICULTY.length;
+}
 
 export function GameView() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState<Status>('asking');
   const [errorMsg, setErrorMsg] = useState('');
+  const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
 
   useEffect(() => {
     const tracker = new HandTracker();
     const flick = new FlickDetector();
     const assets = new AssetRegistry();
     const spawner = new Spawner();
+    const audio = new AudioSystem();
     const entities: Entity[] = [];
     const effects: Effect[] = [];
     const shake: Shake = { intensity: 0 };
@@ -74,6 +115,11 @@ export function GameView() {
         if (cancelled) return;
         setStatus('ready');
 
+        // Kick off background music once everything is loaded.
+        // Some browsers block autoplay until first user gesture; if so it's
+        // a no-op and the user's first flick will be silent. Fine.
+        void audio.startMusic();
+
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Canvas 2D context unavailable');
 
@@ -88,12 +134,6 @@ export function GameView() {
         let smoothed: { x: number; y: number } | null = null;
         let lastSeenMs = 0;
         const shots: ShotEffect[] = [];
-        let peakRotationRate = 0;
-        let totalRotation = 0;
-        let peakAbsVy = 0;
-        let recentAbsVy = 0;
-        let vxAtPeak = 0;
-        let lastFiredBy: 'angular' | 'linear' | null = null;
         let lastFrameMs = performance.now();
 
         const loop = (ts: number) => {
@@ -108,7 +148,6 @@ export function GameView() {
 
           // ── Hand tracking + flick detection ────────────────────────
           const snap: HandSnapshot | null = tracker.detect(video, ts);
-          let firedThisFrame = false;
           if (snap) {
             const { fingertip, wrist } = snap;
             const targetX = (1 - fingertip.x) * w;
@@ -129,19 +168,10 @@ export function GameView() {
               wrist.y,
               ts
             );
-            peakRotationRate = result.peakRotationRate;
-            totalRotation = result.totalRotation;
-            peakAbsVy = result.peakAbsVy;
-            recentAbsVy = result.recentAbsVy;
-            vxAtPeak = result.vxAtPeak;
-
             if (result.fired && smoothed && !gameState.gameOver) {
-              firedThisFrame = true;
               gameState.flicksTotal++;
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
-              lastFiredBy = result.firedBy;
 
-              // Resolve collision against current entities.
               const hitRadius = GESTURE.hitRadius * dpr;
               const hit = resolveFlickHit(
                 smoothed.x,
@@ -155,10 +185,12 @@ export function GameView() {
                 if (hit.kind === 'fruit') {
                   gameState.fruitsBurst++;
                   effects.push(createBurstEffect(hit.x, hit.y, ts, dpr));
+                  audio.playPop();
                 } else {
                   gameState.bombsHit++;
                   effects.push(createExplosionEffect(hit.x, hit.y, ts));
                   shake.intensity = SHAKE_KICK_PX * dpr;
+                  audio.playBomb();
                   damageLives(
                     gameState,
                     LIVES.shootBombPenalty,
@@ -169,7 +201,6 @@ export function GameView() {
               }
             }
           }
-          void firedThisFrame;
 
           const handLost = !smoothed || ts - lastSeenMs > HAND_LOST_TIMEOUT_MS;
           if (handLost) flick.reset();
@@ -184,7 +215,6 @@ export function GameView() {
           for (const e of entities) {
             updateEntity(e, dt);
             if (e.alive && isOffScreenBottom(e, h)) {
-              // Off-screen unshot: fruits cost a life, bombs are correctly avoided.
               if (!gameState.gameOver) {
                 if (e.kind === 'fruit') {
                   gameState.fruitsMissed++;
@@ -213,19 +243,14 @@ export function GameView() {
           }
           decayShake(shake, dt);
 
-          // ── Draw: screen-shake-affected layer ──────────────────────
+          // ── Render playfield (canvas) ──────────────────────────────
+          ctx.clearRect(0, 0, w, h);
           ctx.save();
           if (shake.intensity > 0) {
             const sx = (Math.random() - 0.5) * 2 * shake.intensity;
             const sy = (Math.random() - 0.5) * 2 * shake.intensity;
             ctx.translate(sx, sy);
           }
-
-          // Mirrored video background.
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, -w, 0, w, h);
-          ctx.restore();
 
           for (const e of entities) drawEntity(ctx, e);
 
@@ -245,34 +270,26 @@ export function GameView() {
           if (smoothed && !handLost) {
             drawCrosshair(ctx, smoothed.x, smoothed.y, dpr);
           }
-          ctx.restore(); // end shake transform
+          ctx.restore();
 
-          // ── Draw: HUD layer (no shake) ─────────────────────────────
-          if (handLost && !gameState.gameOver) {
-            drawHandLostBanner(ctx, w, h, dpr);
-          }
-
-          const elapsedSec = gameState.gameOver
+          // ── Push HUD snapshot to React ─────────────────────────────
+          const elapsed = gameState.gameOver
             ? gameState.finalElapsedSec
             : spawner.getElapsed();
-          drawGameTimer(ctx, w, dpr, elapsedSec);
-          drawLivesHud(ctx, w, dpr, gameState.lives);
-
-          if (gameState.gameOver) {
-            drawGameOverOverlay(ctx, w, h, dpr, gameState);
-          }
-
-          if (GESTURE.debugHud) {
-            drawDebugHud(ctx, dpr, {
-              flicks: gameState.flicksTotal,
-              peakRotationRate,
-              totalRotation,
-              peakAbsVy,
-              recentAbsVy,
-              vxAtPeak,
-              lastFiredBy,
-            });
-          }
+          setHud({
+            level: levelForElapsed(elapsed),
+            elapsedSec: elapsed,
+            lives: gameState.lives,
+            gameOver: gameState.gameOver,
+            fruitsBurst: gameState.fruitsBurst,
+            bombsHit: gameState.bombsHit,
+            bombsAvoided: gameState.bombsAvoided,
+            fruitsMissed: gameState.fruitsMissed,
+            flicksTotal: gameState.flicksTotal,
+            flicksHit: gameState.flicksHit,
+            finalElapsedSec: gameState.finalElapsedSec,
+            handLost,
+          });
         };
         raf = requestAnimationFrame(loop);
       } catch (e) {
@@ -291,13 +308,24 @@ export function GameView() {
       if (onResize) window.removeEventListener('resize', onResize);
       stream?.getTracks().forEach((t) => t.stop());
       tracker.dispose();
+      audio.stopMusic();
     };
   }, []);
 
   return (
-    <div className="game-view">
-      <video ref={videoRef} className="hidden-video" playsInline muted />
-      <canvas ref={canvasRef} className="game-canvas" />
+    <div className="game-frame">
+      <div className="playfield">
+        <canvas ref={canvasRef} className="game-canvas" />
+      </div>
+
+      <Scoreboard level={hud.level} lives={hud.lives} />
+      <TimerPanel elapsedSec={hud.elapsedSec} />
+      <WebcamPreview videoRef={videoRef} />
+
+      {hud.handLost && status === 'ready' && !hud.gameOver && (
+        <div className="hand-lost-banner">Show your hand!</div>
+      )}
+
       {status !== 'ready' && (
         <div className="status-overlay">
           {status === 'asking' && <p>Please allow webcam access to play.</p>}
@@ -313,11 +341,112 @@ export function GameView() {
           )}
         </div>
       )}
+
+      {hud.gameOver && <GameOverModal hud={hud} />}
     </div>
   );
 }
 
-// ─── Entity construction ─────────────────────────────────────────────
+// ─── HUD components ──────────────────────────────────────────────────
+
+function Scoreboard({ level, lives }: { level: number; lives: number }) {
+  // Each heart represents 1 life with half-heart granularity.
+  const hearts: Array<'full' | 'half' | 'empty'> = [];
+  for (let i = 0; i < 5; i++) {
+    if (lives >= i + 1) hearts.push('full');
+    else if (lives >= i + 0.5) hearts.push('half');
+    else hearts.push('empty');
+  }
+  const heartSrc = (k: 'full' | 'half' | 'empty') =>
+    `/assets/ui/heart-${k}.png`;
+
+  return (
+    <div className="scoreboard">
+      <div className="scoreboard-pearl-row top" />
+      <div className="scoreboard-pearl-row bottom" />
+      <div className="scoreboard-pearl-col left" />
+      <div className="scoreboard-pearl-col right" />
+      <div className="scoreboard-inner">
+        <div className="scoreboard-level">Level {level}</div>
+        <div className="scoreboard-divider" />
+        <div className="scoreboard-hp">
+          <span className="scoreboard-hp-label">HP</span>
+          <div className="scoreboard-hearts">
+            {hearts.map((kind, i) => (
+              <img
+                key={i}
+                className="scoreboard-heart"
+                src={heartSrc(kind)}
+                alt={kind === 'full' ? '♥' : kind === 'half' ? '◐' : '♡'}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimerPanel({ elapsedSec }: { elapsedSec: number }) {
+  const totalCs = Math.floor(elapsedSec * 100);
+  const minutes = Math.floor(totalCs / 6000);
+  const seconds = Math.floor((totalCs % 6000) / 100);
+  const mm = String(Math.min(99, minutes)).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return (
+    <div className="timer-panel">
+      <img className="timer-wing left" src="/assets/ui/wing.png" alt="" />
+      <div className="timer-display">
+        <div className="timer-digits">{mm}</div>
+        <div className="timer-colon">:</div>
+        <div className="timer-digits">{ss}</div>
+      </div>
+      <img className="timer-wing right" src="/assets/ui/wing.png" alt="" />
+    </div>
+  );
+}
+
+function WebcamPreview({
+  videoRef,
+}: {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}) {
+  return (
+    <div className="webcam-preview">
+      <video ref={videoRef} className="webcam-video" playsInline muted />
+    </div>
+  );
+}
+
+function GameOverModal({ hud }: { hud: HudSnapshot }) {
+  const accuracy =
+    hud.flicksTotal > 0
+      ? Math.round((hud.flicksHit / hud.flicksTotal) * 100) + '%'
+      : '—';
+  const totalCs = Math.floor(hud.finalElapsedSec * 100);
+  const minutes = Math.floor(totalCs / 6000);
+  const seconds = Math.floor((totalCs % 6000) / 100);
+  const cs = totalCs % 100;
+  const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+  return (
+    <div className="game-over-overlay">
+      <div className="game-over-card">
+        <h2 className="game-over-title">GAME OVER</h2>
+        <div className="game-over-time">{display}</div>
+        <ul className="game-over-stats">
+          <li>fruits burst: {hud.fruitsBurst}</li>
+          <li>bombs hit: {hud.bombsHit}</li>
+          <li>bombs avoided: {hud.bombsAvoided}</li>
+          <li>fruits missed: {hud.fruitsMissed}</li>
+          <li>accuracy: {accuracy}</li>
+        </ul>
+        <p className="game-over-hint">refresh page to play again</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Entity construction (unchanged from CP4) ────────────────────────
 
 function buildEntity(
   req: SpawnRequest,
@@ -332,25 +461,15 @@ function buildEntity(
     (req.kind === 'bomb' ? PHYSICS.bombSize : PHYSICS.fruitSize) * dpr;
   const y = canvasH + size;
 
-  // Difficulty-tier "speedMultiplier" k compresses trajectory timing without
-  // changing arc shape. Mathematically: scaling velocity by k while scaling
-  // gravity by k² preserves apogee (= v²/2g unchanged) and horizontal reach,
-  // but the fruit traces the same arc in 1/k the time — i.e. it actually
-  // moves k× faster across the screen, which is the intended "faster
-  // fruits" feel. Without the k² gravity scaling, peak height grows like
-  // k², so a 1.7× tier launches fruits 2.9× higher and they fly off-screen.
   const k = req.speedMultiplier;
-
   const vyMin = PHYSICS.initialVyMin * dpr * k;
   const vyMax = PHYSICS.initialVyMax * dpr * k;
   const vy = vyMin + Math.random() * (vyMax - vyMin);
-
   const vxRange = PHYSICS.initialVxRange * dpr * k;
   const centerOffset = (x - canvasW / 2) / (canvasW / 2);
   const vx =
     -centerOffset * vxRange * 0.7 +
     (Math.random() * 2 - 1) * vxRange * 0.3;
-
   const gravity = PHYSICS.gravity * dpr * k * k;
   const angularVelocity = (Math.random() * 2 - 1) * PHYSICS.spinRange * k;
 
@@ -371,13 +490,12 @@ function buildEntity(
   };
 }
 
-// ─── Drawing helpers ─────────────────────────────────────────────────
+// ─── Canvas drawing helpers ──────────────────────────────────────────
 
 function drawEntity(ctx: CanvasRenderingContext2D, e: Entity): void {
   ctx.save();
   ctx.translate(e.x, e.y);
   ctx.rotate(e.rotation);
-
   const ready = e.image.complete && e.image.naturalWidth > 0;
   if (ready) {
     const nw = e.image.naturalWidth;
@@ -433,14 +551,12 @@ function drawExplosion(
   const alpha = 1 - age;
 
   ctx.save();
-  // Bright flash core (fades fast).
   if (age < 0.3) {
     ctx.beginPath();
     ctx.arc(eff.x, eff.y, radius * 0.5, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255, 230, 240, ${(0.3 - age) * 2.5})`;
     ctx.fill();
   }
-  // Expanding ring.
   ctx.beginPath();
   ctx.arc(eff.x, eff.y, radius, 0, Math.PI * 2);
   ctx.strokeStyle = `rgba(255, 79, 100, ${alpha * 0.95})`;
@@ -448,8 +564,6 @@ function drawExplosion(
   ctx.shadowColor = `rgba(255, 130, 130, ${alpha})`;
   ctx.shadowBlur = 28 * dpr;
   ctx.stroke();
-
-  // Radial sparks.
   ctx.shadowBlur = 0;
   ctx.strokeStyle = `rgba(255, 220, 180, ${alpha * 0.8})`;
   ctx.lineWidth = 3 * dpr;
@@ -529,269 +643,5 @@ function drawShotEffect(
   ctx.lineWidth = 2 * dpr;
   ctx.shadowBlur = 0;
   ctx.stroke();
-  ctx.restore();
-}
-
-function drawHandLostBanner(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  dpr: number
-): void {
-  const text = 'Show your hand!';
-  const fontPx = 26 * dpr;
-  ctx.save();
-  ctx.font = `600 ${fontPx}px system-ui, sans-serif`;
-  const metrics = ctx.measureText(text);
-  const padX = 28 * dpr;
-  const padY = 14 * dpr;
-  const boxW = metrics.width + padX * 2;
-  const boxH = fontPx + padY * 2;
-  const boxX = (w - boxW) / 2;
-  const boxY = h - boxH - 36 * dpr;
-  const radius = 18 * dpr;
-  ctx.fillStyle = 'rgba(255, 79, 166, 0.92)';
-  ctx.shadowColor = 'rgba(255, 130, 200, 0.6)';
-  ctx.shadowBlur = 24 * dpr;
-  ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, w / 2, boxY + boxH / 2);
-  ctx.restore();
-}
-
-function drawGameTimer(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  dpr: number,
-  elapsedSec: number
-): void {
-  const text = `${elapsedSec.toFixed(2)}s`;
-  ctx.save();
-  ctx.font = `700 ${48 * dpr}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(255, 130, 200, 0.9)';
-  ctx.shadowBlur = 16 * dpr;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, w / 2, 28 * dpr);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#ff4fa6';
-  ctx.fillText(text, w / 2, 28 * dpr);
-  ctx.restore();
-}
-
-// ─── Lives HUD ───────────────────────────────────────────────────────
-
-/** Builds the parametric heart curve, centered on (0, 0). */
-function heartPath(ctx: CanvasRenderingContext2D, size: number): void {
-  ctx.beginPath();
-  // x(t) = 16 sin³t, y(t) = 13 cos t − 5 cos 2t − 2 cos 3t − cos 4t
-  // (classic heart curve). Scale 32 px → `size`.
-  const scale = size / 34;
-  for (let i = 0; i <= 64; i++) {
-    const t = (i / 64) * Math.PI * 2;
-    const x = 16 * Math.pow(Math.sin(t), 3) * scale;
-    const y =
-      -(13 * Math.cos(t) -
-        5 * Math.cos(2 * t) -
-        2 * Math.cos(3 * t) -
-        Math.cos(4 * t)) *
-      scale;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-}
-
-function drawHeart(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  size: number,
-  fillFraction: 0 | 0.5 | 1,
-  dpr: number
-): void {
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  const fill = '#ff4fa6';
-  const empty = 'rgba(255, 255, 255, 0.35)';
-  const stroke = '#ffffff';
-
-  // Empty fill (base).
-  heartPath(ctx, size);
-  ctx.fillStyle = fillFraction === 0 ? empty : empty;
-  ctx.fill();
-
-  if (fillFraction === 1) {
-    heartPath(ctx, size);
-    ctx.fillStyle = fill;
-    ctx.shadowColor = 'rgba(255, 79, 166, 0.7)';
-    ctx.shadowBlur = 10 * dpr;
-    ctx.fill();
-  } else if (fillFraction === 0.5) {
-    // Clip to the left half, then fill.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(-size, -size, size, size * 2);
-    ctx.clip();
-    heartPath(ctx, size);
-    ctx.fillStyle = fill;
-    ctx.shadowColor = 'rgba(255, 79, 166, 0.7)';
-    ctx.shadowBlur = 10 * dpr;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Outline last so it sits crisply on top.
-  heartPath(ctx, size);
-  ctx.lineWidth = 2 * dpr;
-  ctx.strokeStyle = stroke;
-  ctx.shadowBlur = 0;
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-function drawLivesHud(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  dpr: number,
-  lives: number
-): void {
-  const heartSize = 32 * dpr;
-  const gap = 10 * dpr;
-  const padding = 28 * dpr;
-  const total = 5;
-
-  // Right-aligned row in the top corner.
-  const rowW = total * heartSize + (total - 1) * gap;
-  const startX = w - padding - rowW + heartSize / 2;
-  const cy = padding + heartSize / 2;
-
-  for (let i = 0; i < total; i++) {
-    const cx = startX + i * (heartSize + gap);
-    // Each heart represents 1 life. Heart i is "full" if lives > i,
-    // "half" if lives > i - 0.5, otherwise empty.
-    let fraction: 0 | 0.5 | 1 = 0;
-    if (lives >= i + 1) fraction = 1;
-    else if (lives >= i + 0.5) fraction = 0.5;
-    drawHeart(ctx, cx, cy, heartSize, fraction, dpr);
-  }
-}
-
-function drawGameOverOverlay(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  dpr: number,
-  state: GameState
-): void {
-  // Semi-transparent dim.
-  ctx.save();
-  ctx.fillStyle = 'rgba(20, 5, 25, 0.55)';
-  ctx.fillRect(0, 0, w, h);
-
-  // Card.
-  const cardW = 480 * dpr;
-  const cardH = 320 * dpr;
-  const cardX = (w - cardW) / 2;
-  const cardY = (h - cardH) / 2;
-  ctx.fillStyle = 'rgba(255, 240, 247, 0.96)';
-  ctx.shadowColor = 'rgba(255, 79, 166, 0.6)';
-  ctx.shadowBlur = 32 * dpr;
-  ctx.beginPath();
-  ctx.roundRect(cardX, cardY, cardW, cardH, 24 * dpr);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  ctx.fillStyle = '#ff4fa6';
-  ctx.font = `800 ${48 * dpr}px system-ui, sans-serif`;
-  ctx.fillText('GAME OVER', w / 2, cardY + 60 * dpr);
-
-  ctx.fillStyle = '#6b2348';
-  ctx.font = `700 ${72 * dpr}px system-ui, sans-serif`;
-  ctx.fillText(
-    `${state.finalElapsedSec.toFixed(2)}s`,
-    w / 2,
-    cardY + 140 * dpr
-  );
-
-  ctx.fillStyle = '#a04074';
-  ctx.font = `500 ${16 * dpr}px ui-monospace, monospace`;
-  const accuracy =
-    state.flicksTotal > 0
-      ? ((state.flicksHit / state.flicksTotal) * 100).toFixed(0) + '%'
-      : '—';
-  const stats = [
-    `fruits burst: ${state.fruitsBurst}`,
-    `bombs hit: ${state.bombsHit}    bombs avoided: ${state.bombsAvoided}`,
-    `fruits missed: ${state.fruitsMissed}    accuracy: ${accuracy}`,
-  ];
-  for (let i = 0; i < stats.length; i++) {
-    ctx.fillText(stats[i], w / 2, cardY + 200 * dpr + i * 22 * dpr);
-  }
-
-  ctx.font = `500 ${14 * dpr}px system-ui, sans-serif`;
-  ctx.fillStyle = '#a04074';
-  ctx.fillText('Refresh page to play again', w / 2, cardY + cardH - 30 * dpr);
-  ctx.restore();
-}
-
-function drawDebugHud(
-  ctx: CanvasRenderingContext2D,
-  dpr: number,
-  s: {
-    flicks: number;
-    peakRotationRate: number;
-    totalRotation: number;
-    peakAbsVy: number;
-    recentAbsVy: number;
-    vxAtPeak: number;
-    lastFiredBy: 'angular' | 'linear' | null;
-  }
-): void {
-  ctx.save();
-  ctx.font = `500 ${14 * dpr}px ui-monospace, monospace`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  const ratio =
-    Math.abs(s.vxAtPeak) > 0.001
-      ? (Math.abs(s.peakAbsVy) / Math.abs(s.vxAtPeak)).toFixed(2)
-      : '∞';
-  const lines = [
-    `flicks: ${s.flicks}  via: ${s.lastFiredBy ?? '—'}`,
-    `── angular ──`,
-    `peak ↑rot: ${s.peakRotationRate.toFixed(2)} /s`,
-    `total ↑rot: ${s.totalRotation.toFixed(2)}`,
-    `── linear (abs) ──`,
-    `peak ↑vy: ${s.peakAbsVy.toFixed(2)} u/s`,
-    `recent vy: ${s.recentAbsVy.toFixed(2)} u/s`,
-    `vx@peak: ${s.vxAtPeak.toFixed(2)} u/s`,
-    `|vy|/|vx|: ${ratio}`,
-  ];
-  const padX = 12 * dpr;
-  const padY = 8 * dpr;
-  const lineH = 18 * dpr;
-  const boxW = 240 * dpr;
-  const boxH = padY * 2 + lineH * lines.length;
-  const x = 16 * dpr;
-  const y = 16 * dpr;
-  ctx.fillStyle = 'rgba(26, 12, 28, 0.65)';
-  ctx.beginPath();
-  ctx.roundRect(x, y, boxW, boxH, 10 * dpr);
-  ctx.fill();
-  ctx.fillStyle = '#ffd6ec';
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], x + padX, y + padY + i * lineH);
-  }
   ctx.restore();
 }
