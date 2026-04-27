@@ -82,13 +82,15 @@ export const TRACKING = {
 // Physics constants in CSS pixels (multiplied by devicePixelRatio at runtime
 // so visible motion is consistent across HiDPI / standard displays).
 export const PHYSICS = {
-  gravity: 1400,           // px / s^2 (downward)
-  initialVyMin: -1100,     // px / s (upward, weaker launch)
-  initialVyMax: -1400,     // px / s (upward, stronger launch)
-  initialVxRange: 350,     // ± px / s horizontal
+  gravity: 1100,           // px / s^2 (downward) — softer so fruits peak higher
+  initialVyMin: -1350,     // px / s (upward, weaker launch)
+  initialVyMax: -1700,     // px / s (upward, stronger launch)
+  initialVxRange: 380,     // ± px / s horizontal
   spinRange: 4,            // rad / s ± rotation
-  fruitSize: 110,          // px diameter
-  bombSize: 110,           // px diameter
+  // Maximum render dimension (in css px). Used to scale each image while
+  // preserving its natural aspect ratio.
+  fruitSize: 170,
+  bombSize: 170,
   // Horizontal margin (px) from each edge for spawn x-positions.
   spawnEdgeMargin: 80,
 } as const;

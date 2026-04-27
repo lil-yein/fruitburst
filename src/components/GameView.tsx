@@ -287,14 +287,27 @@ function drawEntity(ctx: CanvasRenderingContext2D, e: Entity): void {
   ctx.save();
   ctx.translate(e.x, e.y);
   ctx.rotate(e.rotation);
-  const half = e.size / 2;
 
   const ready = e.image.complete && e.image.naturalWidth > 0;
   if (ready) {
-    ctx.drawImage(e.image, -half, -half, e.size, e.size);
+    // Preserve the SVG's natural aspect ratio. e.size is the longer
+    // dimension; the shorter side scales proportionally.
+    const nw = e.image.naturalWidth;
+    const nh = e.image.naturalHeight;
+    let drawW: number;
+    let drawH: number;
+    if (nw >= nh) {
+      drawW = e.size;
+      drawH = e.size * (nh / nw);
+    } else {
+      drawH = e.size;
+      drawW = e.size * (nw / nh);
+    }
+    ctx.drawImage(e.image, -drawW / 2, -drawH / 2, drawW, drawH);
   } else {
     // Fallback: bright shape so we can still see the entity if the asset
     // failed or hasn't decoded yet.
+    const half = e.size / 2;
     ctx.beginPath();
     ctx.arc(0, 0, half, 0, Math.PI * 2);
     ctx.fillStyle = e.kind === 'bomb' ? '#1a1a1a' : '#ff8fcd';
