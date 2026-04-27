@@ -395,13 +395,10 @@ function TimerPanel({ elapsedSec }: { elapsedSec: number }) {
   const ss = String(seconds).padStart(2, '0');
   return (
     <div className="timer-panel">
-      <img className="timer-wing left" src="/assets/ui/wing.png" alt="" />
-      <div className="timer-display">
-        <div className="timer-digits">{mm}</div>
-        <div className="timer-colon">:</div>
-        <div className="timer-digits">{ss}</div>
+      <img className="timer-bg" src="/assets/ui/time.png" alt="" />
+      <div className="timer-text">
+        {mm} : {ss}
       </div>
-      <img className="timer-wing right" src="/assets/ui/wing.png" alt="" />
     </div>
   );
 }

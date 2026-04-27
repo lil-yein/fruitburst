@@ -131,56 +131,32 @@
 
 .timer-panel {
   position: absolute;
-  top: 42px;
+  top: 30px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0;
+  width: 280px;
   pointer-events: none;
   z-index: 5;
 }
 
-.timer-wing {
-  width: 100px;
-  height: auto;
+/* time.png is the entire frame (560×134 native, scaled to 280 wide). */
+.timer-bg {
   display: block;
-  filter: drop-shadow(0 2px 4px rgba(255, 79, 166, 0.25));
+  width: 100%;
+  height: auto;
 }
 
-.timer-wing.left { transform: scaleX(-1); }
-
-.timer-display {
-  position: relative;
-  background: var(--pink-50);
-  border: 4px solid var(--pink-500);
-  border-radius: 14px;
-  padding: 6px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 -24px; /* wings overlap slightly */
-  box-shadow: 0 4px 0 var(--pink-300);
-  font-family: var(--font-display);
-  color: var(--pink-900);
-}
-
-.timer-digits {
-  background: white;
-  border: 3px solid var(--pink-300);
-  border-radius: 8px;
-  padding: 2px 12px;
-  min-width: 64px;
+.timer-text {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
   text-align: center;
+  font-family: var(--font-display);
   font-size: 32px;
+  line-height: 40px;
+  color: #44082A;
   letter-spacing: 2px;
-  line-height: 36px;
-}
-
-.timer-colon {
-  font-size: 32px;
-  letter-spacing: 2px;
-  font-weight: 700;
 }
 
 /* ── Webcam preview (bottom-right) ──────────────────────────────────── */
