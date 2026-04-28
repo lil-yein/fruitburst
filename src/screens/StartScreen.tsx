@@ -35,9 +35,9 @@ const DECORATIONS: Decoration[] = [
   { src: '/assets/fruits/orange.svg',    side: 'left',  top: 49.5, offset:  5.2, w: 140, delay: 0.8 },
   { src: '/assets/fruits/dragon.svg',    side: 'left',  top: 56.3, offset: 18.5, w: 120, delay: 1.2 },
   // ── Right side (top → bottom): apple, banana, pineapple, bomb ──
-  { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 12.3, w: 140, delay: 0.2 },
+  { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 17.0, w: 140, delay: 0.2 },
   { src: '/assets/fruits/banana.svg',    side: 'right', top: 35.8, offset:  5.2, w: 140, delay: 0.6 },
-  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 13.8, w: 120, delay: 1.0 },
+  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 18.5, w: 120, delay: 1.0 },
   { src: '/assets/bombs/bomb.svg',       side: 'right', top: 62.1, offset:  4.4, w: 140, delay: 1.4 },
 ];
 
