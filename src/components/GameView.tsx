@@ -324,7 +324,7 @@ export function GameView() {
         <canvas ref={canvasRef} className="game-canvas" />
       </div>
 
-      <Scoreboard lives={hud.lives} />
+      <Scoreboard lives={hud.lives} fruitsBurst={hud.fruitsBurst} />
       <TimerPanel elapsedSec={hud.elapsedSec} />
       <WebcamPreview videoRef={videoRef} />
 
@@ -355,7 +355,13 @@ export function GameView() {
 
 // ─── HUD components ──────────────────────────────────────────────────
 
-function Scoreboard({ lives }: { lives: number }) {
+function Scoreboard({
+  lives,
+  fruitsBurst,
+}: {
+  lives: number;
+  fruitsBurst: number;
+}) {
   // Each heart represents 1 life with half-heart granularity.
   const hearts: Array<'full' | 'half' | 'empty'> = [];
   for (let i = 0; i < 5; i++) {
@@ -367,6 +373,8 @@ function Scoreboard({ lives }: { lives: number }) {
   return (
     <div className="scoreboard">
       <div className="scoreboard-card">
+        <div className="scoreboard-fruit">Fruit {fruitsBurst}</div>
+        <div className="scoreboard-divider" />
         <div className="scoreboard-hp">
           <span className="scoreboard-hp-label">HP</span>
           <div className="scoreboard-hearts">
@@ -385,8 +393,8 @@ function Scoreboard({ lives }: { lives: number }) {
           cols sit between them. Centers align on the card's outer edge. */}
       <PearlLine side="top" count={12} />
       <PearlLine side="bottom" count={12} />
-      <PearlLine side="left" count={2} />
-      <PearlLine side="right" count={2} />
+      <PearlLine side="left" count={4} />
+      <PearlLine side="right" count={4} />
     </div>
   );
 }
