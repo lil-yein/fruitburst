@@ -13,12 +13,18 @@ import { resolveFlickHit } from '../game/collision';
 import {
   createBurstEffect,
   createExplosionEffect,
+  createHealEffect,
   decayShake,
   updateEffects,
   type Effect,
   type Shake,
 } from '../game/effects';
-import { createGameState, damageLives, type GameState } from '../game/state';
+import {
+  createGameState,
+  damageLives,
+  healLives,
+  type GameState,
+} from '../game/state';
 import { AudioSystem } from '../game/audio';
 import { DIFFICULTY, GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
 import './GameView.css';
@@ -186,6 +192,16 @@ export function GameView() {
                   gameState.fruitsBurst++;
                   effects.push(createBurstEffect(hit.x, hit.y, ts, dpr));
                   audio.playPop();
+                  // Reward: +0.5 HP per fruit, capped at LIVES.max. The
+                  // floating cue swaps to "Perfect!" the moment we top
+                  // out; subsequent hits at max are silent.
+                  const heal = healLives(gameState, LIVES.fruitBurstReward);
+                  if (heal.applied) {
+                    const label = heal.reachedMax
+                      ? 'Perfect!'
+                      : `+${LIVES.fruitBurstReward}`;
+                    effects.push(createHealEffect(hit.x, hit.y, ts, label));
+                  }
                 } else {
                   gameState.bombsHit++;
                   effects.push(createExplosionEffect(hit.x, hit.y, ts));
@@ -257,7 +273,8 @@ export function GameView() {
           for (const eff of effects) {
             const age = (ts - eff.startedAt) / eff.duration;
             if (eff.kind === 'burst') drawBurst(ctx, eff, age);
-            else drawExplosion(ctx, eff, age, dpr);
+            else if (eff.kind === 'explosion') drawExplosion(ctx, eff, age, dpr);
+            else drawHealEffect(ctx, eff, age, dpr);
           }
 
           for (let i = shots.length - 1; i >= 0; i--) {
@@ -595,6 +612,40 @@ function drawExplosion(
     ctx.lineTo(eff.x + Math.cos(ang) * r1, eff.y + Math.sin(ang) * r1);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawHealEffect(
+  ctx: CanvasRenderingContext2D,
+  eff: Extract<Effect, { kind: 'heal' }>,
+  age: number,
+  dpr: number
+): void {
+  // Float up and fade out. Easing: position uses ease-out so it pops up
+  // quickly then settles; alpha eases-in-quad to fade more sharply at the end.
+  const popEase = 1 - Math.pow(1 - age, 2);
+  const yOffset = -64 * dpr * popEase;
+  const alpha = age < 0.7 ? 1 : 1 - (age - 0.7) / 0.3;
+
+  // Slight scale pop on first ~20% of the lifetime for satisfaction.
+  const scale = age < 0.2 ? 0.6 + (age / 0.2) * 0.5 : 1.0 + (age - 0.2) * 0.05;
+
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, alpha);
+  ctx.translate(eff.x, eff.y + yOffset);
+  ctx.scale(scale, scale);
+  ctx.font = `700 ${28 * dpr}px 'Cafe24 PRO UP', system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(255, 130, 200, 0.95)';
+  ctx.shadowBlur = 16 * dpr;
+  // White stroke around pink fill for arcade-poster feel.
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 4 * dpr;
+  ctx.strokeText(eff.label, 0, 0);
+  ctx.fillStyle = '#ff4fa6';
+  ctx.shadowBlur = 0;
+  ctx.fillText(eff.label, 0, 0);
   ctx.restore();
 }
 

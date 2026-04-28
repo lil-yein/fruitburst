@@ -26,7 +26,17 @@ export type ExplosionEffect = {
   duration: number;
 };
 
-export type Effect = BurstEffect | ExplosionEffect;
+/** Floating "+0.5" / "Perfect!" text shown when a fruit hit grants HP. */
+export type HealEffect = {
+  kind: 'heal';
+  x: number;
+  y: number;
+  startedAt: number;
+  duration: number;
+  label: string;
+};
+
+export type Effect = BurstEffect | ExplosionEffect | HealEffect;
 
 const FRUIT_PARTICLE_COLORS = [
   '#ff4fa6',
@@ -71,6 +81,15 @@ export function createExplosionEffect(
   ts: number
 ): ExplosionEffect {
   return { kind: 'explosion', x, y, startedAt: ts, duration: 520 };
+}
+
+export function createHealEffect(
+  x: number,
+  y: number,
+  ts: number,
+  label: string
+): HealEffect {
+  return { kind: 'heal', x, y, startedAt: ts, duration: 800, label };
 }
 
 /**

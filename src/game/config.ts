@@ -2,8 +2,13 @@
 
 export const LIVES = {
   start: 5.0,
+  // Hard cap on lives — reward fruit hits without letting flawless play
+  // stack lives indefinitely. Set higher (or to Infinity) to allow stacking.
+  max: 5.0,
   missFruitPenalty: 0.5,
   shootBombPenalty: 1.0,
+  // Lives gained when you successfully burst a fruit. Capped at LIVES.max.
+  fruitBurstReward: 0.5,
 } as const;
 
 export const GESTURE = {

@@ -54,3 +54,26 @@ export function damageLives(
     state.finalElapsedSec = elapsedSec;
   }
 }
+
+export type HealResult = {
+  /** True if lives actually went up (false when already at max). */
+  applied: boolean;
+  /** True if this heal was the one that brought lives to LIVES.max. */
+  reachedMax: boolean;
+};
+
+/**
+ * Restore lives, capped at LIVES.max. Returns whether the heal landed and
+ * whether it just topped the player out — the caller uses `reachedMax` to
+ * decide between a "+N" cue and a "Perfect!" cue.
+ */
+export function healLives(state: GameState, amount: number): HealResult {
+  if (state.gameOver) return { applied: false, reachedMax: false };
+  if (state.lives >= LIVES.max) return { applied: false, reachedMax: false };
+
+  state.lives = Math.min(LIVES.max, state.lives + amount);
+  return {
+    applied: true,
+    reachedMax: state.lives >= LIVES.max,
+  };
+}
