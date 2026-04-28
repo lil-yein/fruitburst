@@ -79,7 +79,7 @@
 .start-decoration {
   position: absolute;
   pointer-events: none;
-  animation: start-float 3.6s ease-in-out infinite;
+  animation: start-float 2.2s ease-in-out infinite;
   z-index: 0;
 }
 
