@@ -15,12 +15,18 @@
   cursor: not-allowed;
 }
 
-/* Primary: pink fill, light-pink border, dark plum drop shadow. */
+/* Primary: pink fill, light-pink border, dark plum drop shadow.
+ * Text gets a 2px outer plum stroke. -webkit-text-stroke draws stroke
+ * centered on the glyph edge, so 4px width with paint-order:stroke-fill
+ * yields ~2px visible outer outline (the inner 2px is covered by the
+ * white fill that paints last). */
 .fb-button--primary {
   background: #ec6f9d;
   color: #ffffff;
   border: 4px solid #f7cad1;
   box-shadow: 0 4px 0 #44082a;
+  -webkit-text-stroke: 4px #44082a;
+  paint-order: stroke fill;
 }
 
 .fb-button--primary:not(:disabled):hover {
