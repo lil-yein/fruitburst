@@ -26,7 +26,7 @@ import {
   type GameState,
 } from '../game/state';
 import { AudioSystem } from '../game/audio';
-import { DIFFICULTY, GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
+import { GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
 import './GameView.css';
 
 type Status = 'asking' | 'loading' | 'ready' | 'error';
@@ -40,7 +40,6 @@ const PARTICLE_GRAVITY = 1500;
 type ShotEffect = { x: number; y: number; t: number };
 
 type HudSnapshot = {
-  level: number;
   elapsedSec: number;
   lives: number;
   gameOver: boolean;
@@ -55,7 +54,6 @@ type HudSnapshot = {
 };
 
 const INITIAL_HUD: HudSnapshot = {
-  level: 1,
   elapsedSec: 0,
   lives: LIVES.start,
   gameOver: false,
@@ -68,14 +66,6 @@ const INITIAL_HUD: HudSnapshot = {
   finalElapsedSec: 0,
   handLost: false,
 };
-
-function levelForElapsed(elapsedSec: number): number {
-  // Map difficulty tiers (untilSec boundaries) → user-facing 1-based level.
-  for (let i = 0; i < DIFFICULTY.length; i++) {
-    if (elapsedSec < DIFFICULTY[i].untilSec) return i + 1;
-  }
-  return DIFFICULTY.length;
-}
 
 export function GameView() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -294,7 +284,6 @@ export function GameView() {
             ? gameState.finalElapsedSec
             : spawner.getElapsed();
           setHud({
-            level: levelForElapsed(elapsed),
             elapsedSec: elapsed,
             lives: gameState.lives,
             gameOver: gameState.gameOver,
@@ -335,7 +324,7 @@ export function GameView() {
         <canvas ref={canvasRef} className="game-canvas" />
       </div>
 
-      <Scoreboard level={hud.level} lives={hud.lives} />
+      <Scoreboard lives={hud.lives} />
       <TimerPanel elapsedSec={hud.elapsedSec} />
       <WebcamPreview videoRef={videoRef} />
 
@@ -366,7 +355,7 @@ export function GameView() {
 
 // ─── HUD components ──────────────────────────────────────────────────
 
-function Scoreboard({ level, lives }: { level: number; lives: number }) {
+function Scoreboard({ lives }: { lives: number }) {
   // Each heart represents 1 life with half-heart granularity.
   const hearts: Array<'full' | 'half' | 'empty'> = [];
   for (let i = 0; i < 5; i++) {
@@ -378,8 +367,6 @@ function Scoreboard({ level, lives }: { level: number; lives: number }) {
   return (
     <div className="scoreboard">
       <div className="scoreboard-card">
-        <div className="scoreboard-level">Level {level}</div>
-        <div className="scoreboard-divider" />
         <div className="scoreboard-hp">
           <span className="scoreboard-hp-label">HP</span>
           <div className="scoreboard-hearts">
@@ -398,8 +385,8 @@ function Scoreboard({ level, lives }: { level: number; lives: number }) {
           cols sit between them. Centers align on the card's outer edge. */}
       <PearlLine side="top" count={12} />
       <PearlLine side="bottom" count={12} />
-      <PearlLine side="left" count={4} />
-      <PearlLine side="right" count={4} />
+      <PearlLine side="left" count={2} />
+      <PearlLine side="right" count={2} />
     </div>
   );
 }
