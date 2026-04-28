@@ -86,8 +86,9 @@
 .start-decoration-img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  /* Height flows from the SVG's intrinsic aspect — wrapper width controls
+     visual size; no letterbox padding from a fixed-height bounding box. */
+  height: auto;
 }
 
 @keyframes start-float {

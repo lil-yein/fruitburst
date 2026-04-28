@@ -19,29 +19,26 @@ type Decoration = {
   top: number;
   /** Distance from the chosen edge as % of viewport width. */
   offset: number;
-  /** Bounding box width in css px (per Figma node 43:1867). */
+  /** Width in css px. Height auto-derives from the SVG's natural aspect. */
   w: number;
-  /** Bounding box height in css px. */
-  h: number;
   /** Animation phase offset in seconds. */
   delay: number;
 };
 
-// Positions, sizes, and side assignments lifted directly from Figma node
-// 43:1867. Anchored to viewport % so the layout still scales when the
-// window isn't exactly 1280×832. Each fruit appears once; bomb lives in
-// the bottom-right.
+// Positions and side assignments lifted from Figma node 43:1867.
+// Per request: dragon and pineapple at 120px wide, all others at 140px.
+// Heights flow from each SVG's intrinsic aspect ratio.
 const DECORATIONS: Decoration[] = [
   // ── Left side (top → bottom): cherry, kiwi, orange, dragon ──
-  { src: '/assets/fruits/cherry.svg',    side: 'left',  top: 18.3, offset:  5.1, w: 208, h: 208, delay: 0.0 },
-  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 26.2, offset: 16.5, w: 199, h: 309, delay: 0.4 },
-  { src: '/assets/fruits/orange.svg',    side: 'left',  top: 49.5, offset:  5.2, w: 141, h: 160, delay: 0.8 },
-  { src: '/assets/fruits/dragon.svg',    side: 'left',  top: 56.3, offset: 18.5, w: 169, h: 233, delay: 1.2 },
+  { src: '/assets/fruits/cherry.svg',    side: 'left',  top: 18.3, offset:  5.1, w: 140, delay: 0.0 },
+  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 26.2, offset: 16.5, w: 140, delay: 0.4 },
+  { src: '/assets/fruits/orange.svg',    side: 'left',  top: 49.5, offset:  5.2, w: 140, delay: 0.8 },
+  { src: '/assets/fruits/dragon.svg',    side: 'left',  top: 56.3, offset: 18.5, w: 120, delay: 1.2 },
   // ── Right side (top → bottom): apple, banana, pineapple, bomb ──
-  { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 12.3, w: 170, h: 183, delay: 0.2 },
-  { src: '/assets/fruits/banana.svg',    side: 'right', top: 31.0, offset:  5.2, w:  96, h: 173, delay: 0.6 },
-  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 13.8, w: 160, h: 153, delay: 1.0 },
-  { src: '/assets/bombs/bomb.svg',       side: 'right', top: 62.1, offset:  4.4, w: 195, h: 195, delay: 1.4 },
+  { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 12.3, w: 140, delay: 0.2 },
+  { src: '/assets/fruits/banana.svg',    side: 'right', top: 31.0, offset:  5.2, w: 140, delay: 0.6 },
+  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 13.8, w: 120, delay: 1.0 },
+  { src: '/assets/bombs/bomb.svg',       side: 'right', top: 62.1, offset:  4.4, w: 140, delay: 1.4 },
 ];
 
 export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
@@ -55,7 +52,6 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
             top: `${d.top}%`,
             [d.side]: `${d.offset}%`,
             width: d.w,
-            height: d.h,
             animationDelay: `${d.delay}s`,
           }}
         >
