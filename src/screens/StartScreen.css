@@ -1,0 +1,59 @@
+/* Start screen — same pink grid as the playfield, content stack centered. */
+
+.start-screen {
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 48px;
+  background-color: #f7cad1;
+  background-image:
+    linear-gradient(to right, #ffffff 0 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff 0 1px, transparent 1px);
+  background-size: 64px 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+}
+
+.start-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  max-width: 560px;
+  text-align: center;
+}
+
+.start-logo {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  display: block;
+}
+
+/* "Quick heads up..." — pink with a 2px white outer stroke. Same trick as
+   the primary button: 4px text-stroke + paint-order:stroke fill yields a
+   clean 2px outer outline (the inner 2px is covered by the fill). */
+.start-headline {
+  margin: 0;
+  font-size: 24px;
+  line-height: 28px;
+  color: #ec6f9d;
+  -webkit-text-stroke: 4px #ffffff;
+  paint-order: stroke fill;
+}
+
+.start-privacy {
+  margin: 0;
+  font-size: 16px;
+  line-height: 20px;
+  color: #44082a;
+}
+
+.start-buttons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}

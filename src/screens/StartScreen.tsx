@@ -1,10 +1,9 @@
-// Start screen — placeholder. Title + Start Game + Leaderboard + the
-// webcam permission primer. Will be re-skinned with the real Figma
-// design in a follow-up CP; for now this is functional so the router
-// flow can be tested end-to-end.
+// Start screen: logo + camera-permission primer + Start/Leaderboard
+// buttons. Background mirrors the in-game pink grid playfield so the
+// visual transition into a run feels continuous.
 
 import { Button } from '../components/ui/Button';
-import './screen.css';
+import './StartScreen.css';
 
 export type StartScreenProps = {
   onStart: () => void;
@@ -13,25 +12,33 @@ export type StartScreenProps = {
 
 export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
   return (
-    <div className="screen">
-      <h1>FruitBurst</h1>
+    <div className="start-screen">
+      <div className="start-content">
+        <img
+          src="/assets/ui/logo.svg"
+          alt="FruitBurst"
+          className="start-logo"
+        />
 
-      <div className="screen-buttons">
-        <Button variant="primary" onClick={onStart}>
-          Start Game
-        </Button>
-        <Button variant="secondary" onClick={onLeaderboard}>
-          Leaderboard
-        </Button>
+        <p className="start-headline">
+          Quick heads up, we'll need your camera!
+        </p>
+
+        <p className="start-privacy">
+          Your webcam stays on your computer.
+          <br />
+          Nothing leaves, nothing is saved.
+        </p>
+
+        <div className="start-buttons">
+          <Button variant="primary" onClick={onStart}>
+            Start Game
+          </Button>
+          <Button variant="secondary" onClick={onLeaderboard}>
+            Leaderboard
+          </Button>
+        </div>
       </div>
-
-      <p className="screen-permission-note">
-        <strong>Quick heads up — we'll need your camera!</strong>
-        <br />
-        FruitBurst uses your webcam to track your hand so you can aim and flick.
-        Everything happens right in your browser — nothing is recorded,
-        uploaded, or shared.
-      </p>
     </div>
   );
 }
