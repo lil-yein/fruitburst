@@ -28,7 +28,9 @@ Phase 1 (MVP) — in progress, built in checkpoints.
 - [x] CP2 — flick gesture
 - [x] CP3 — fruit/bomb spawning + physics
 - [x] CP4 — collision + lives + scoring
-- [ ] CP5 — difficulty + screens + local leaderboard
+- [x] CP5a — game screen redesign + audio
+- [x] CP5b.0 — screen router + leaderboard storage (placeholder screens)
+- [ ] CP5b.1+ — re-skin Start / Calibration / GameOver / Leaderboard
 
 ## Tunable constants
 

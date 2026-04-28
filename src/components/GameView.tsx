@@ -36,6 +36,21 @@ const SHOT_EFFECT_MS = 280;
 const MAX_DT_SEC = 0.05;
 const SHAKE_KICK_PX = 22;
 const PARTICLE_GRAVITY = 1500;
+/** Pause after lives hit 0 before handing off to the game-over screen — lets
+ *  the killing-blow explosion / shake play out so the transition feels
+ *  earned instead of jarring. */
+const GAME_OVER_HOLD_MS = 1500;
+
+/** Snapshot of a finished run, handed off to the game-over screen. */
+export type GameRunResult = {
+  timeSec: number;
+  fruitsBurst: number;
+  bombsHit: number;
+  bombsAvoided: number;
+  fruitsMissed: number;
+  flicksTotal: number;
+  flicksHit: number;
+};
 
 type ShotEffect = { x: number; y: number; t: number };
 
@@ -67,12 +82,22 @@ const INITIAL_HUD: HudSnapshot = {
   handLost: false,
 };
 
-export function GameView() {
+export type GameViewProps = {
+  /** Called once the game ends and the death animation has played out.
+   *  Parent should switch to the game-over screen with this run's stats. */
+  onGameOver: (result: GameRunResult) => void;
+};
+
+export function GameView({ onGameOver }: GameViewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState<Status>('asking');
   const [errorMsg, setErrorMsg] = useState('');
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
+  // Keep onGameOver in a ref so the long-lived rAF loop always sees the
+  // current callback without resubscribing.
+  const onGameOverRef = useRef(onGameOver);
+  onGameOverRef.current = onGameOver;
 
   useEffect(() => {
     const tracker = new HandTracker();
@@ -89,6 +114,8 @@ export function GameView() {
     let stream: MediaStream | null = null;
     let cancelled = false;
     let onResize: (() => void) | null = null;
+    let gameOverHandoffScheduled = false;
+    let gameOverHandoffTimer = 0;
 
     const run = async () => {
       try {
@@ -241,6 +268,25 @@ export function GameView() {
             if (!entities[i].alive) entities.splice(i, 1);
           }
 
+          // Once lives hit zero, hand the run off to the parent after a
+          // short delay — lets the killing-blow effects play out first.
+          if (gameState.gameOver && !gameOverHandoffScheduled) {
+            gameOverHandoffScheduled = true;
+            audio.stopMusic();
+            gameOverHandoffTimer = window.setTimeout(() => {
+              if (cancelled) return;
+              onGameOverRef.current({
+                timeSec: gameState.finalElapsedSec,
+                fruitsBurst: gameState.fruitsBurst,
+                bombsHit: gameState.bombsHit,
+                bombsAvoided: gameState.bombsAvoided,
+                fruitsMissed: gameState.fruitsMissed,
+                flicksTotal: gameState.flicksTotal,
+                flicksHit: gameState.flicksHit,
+              });
+            }, GAME_OVER_HOLD_MS);
+          }
+
           // ── Effect physics + shake decay ───────────────────────────
           updateEffects(effects, dt, PARTICLE_GRAVITY * dpr);
           for (let i = effects.length - 1; i >= 0; i--) {
@@ -311,6 +357,7 @@ export function GameView() {
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      if (gameOverHandoffTimer) clearTimeout(gameOverHandoffTimer);
       if (onResize) window.removeEventListener('resize', onResize);
       stream?.getTracks().forEach((t) => t.stop());
       tracker.dispose();
@@ -347,8 +394,6 @@ export function GameView() {
           )}
         </div>
       )}
-
-      {hud.gameOver && <GameOverModal hud={hud} />}
     </div>
   );
 }
@@ -444,34 +489,6 @@ function WebcamPreview({
   return (
     <div className="webcam-preview">
       <video ref={videoRef} className="webcam-video" playsInline muted />
-    </div>
-  );
-}
-
-function GameOverModal({ hud }: { hud: HudSnapshot }) {
-  const accuracy =
-    hud.flicksTotal > 0
-      ? Math.round((hud.flicksHit / hud.flicksTotal) * 100) + '%'
-      : '—';
-  const totalCs = Math.floor(hud.finalElapsedSec * 100);
-  const minutes = Math.floor(totalCs / 6000);
-  const seconds = Math.floor((totalCs % 6000) / 100);
-  const cs = totalCs % 100;
-  const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
-  return (
-    <div className="game-over-overlay">
-      <div className="game-over-card">
-        <h2 className="game-over-title">GAME OVER</h2>
-        <div className="game-over-time">{display}</div>
-        <ul className="game-over-stats">
-          <li>fruits burst: {hud.fruitsBurst}</li>
-          <li>bombs hit: {hud.bombsHit}</li>
-          <li>bombs avoided: {hud.bombsAvoided}</li>
-          <li>fruits missed: {hud.fruitsMissed}</li>
-          <li>accuracy: {accuracy}</li>
-        </ul>
-        <p className="game-over-hint">refresh page to play again</p>
-      </div>
     </div>
   );
 }
