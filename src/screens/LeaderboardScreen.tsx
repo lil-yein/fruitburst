@@ -8,6 +8,7 @@ import {
   loadLeaderboard,
   type LeaderboardEntry,
 } from '../game/leaderboard';
+import { Button } from '../components/ui/Button';
 import './screen.css';
 
 export type LeaderboardScreenProps = {
@@ -86,9 +87,9 @@ export function LeaderboardScreen({
       )}
 
       <div className="screen-buttons">
-        <button className="screen-button" onClick={onBack}>
+        <Button variant="primary" onClick={onBack}>
           Back
-        </button>
+        </Button>
       </div>
     </div>
   );

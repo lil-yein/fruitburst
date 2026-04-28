@@ -10,6 +10,8 @@ import {
 } from '../game/leaderboard';
 import { LEADERBOARD } from '../game/config';
 import type { GameRunResult } from '../components/GameView';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import './screen.css';
 
 export type GameOverScreenProps = {
@@ -76,14 +78,14 @@ export function GameOverScreen({
           gap: 12,
         }}
       >
-        <input
-          className="screen-input"
+        <Input
           type="text"
           value={name}
           maxLength={LEADERBOARD.nameMaxLen}
-          placeholder="Enter your name"
+          placeholder="Name"
           onChange={(e) => setName(e.target.value)}
           disabled={submitted}
+          style={{ width: 280 }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
           }}
@@ -97,19 +99,15 @@ export function GameOverScreen({
       </div>
 
       <div className="screen-buttons">
-        <button
-          className="screen-button"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
+        <Button variant="primary" disabled={!canSubmit} onClick={handleSubmit}>
           Submit Score
-        </button>
-        <button className="screen-button ghost" onClick={onPlayAgain}>
+        </Button>
+        <Button variant="secondary" onClick={onPlayAgain}>
           Play Again
-        </button>
-        <button className="screen-button ghost" onClick={onSkipToLeaderboard}>
+        </Button>
+        <Button variant="secondary" onClick={onSkipToLeaderboard}>
           Leaderboard
-        </button>
+        </Button>
       </div>
     </div>
   );

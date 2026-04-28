@@ -27,14 +27,19 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export class AssetRegistry {
   private fruits: HTMLImageElement[] = [];
   private bomb: HTMLImageElement | null = null;
+  private crosshair: HTMLImageElement | null = null;
 
   async load(): Promise<void> {
     const fruitImgs = await Promise.all(
       FRUIT_NAMES.map((n) => loadImage(`/assets/fruits/${n}.svg`))
     );
-    const bombImg = await loadImage('/assets/bombs/bomb.svg');
+    const [bombImg, crosshairImg] = await Promise.all([
+      loadImage('/assets/bombs/bomb.svg'),
+      loadImage('/assets/ui/crosshair.svg'),
+    ]);
     this.fruits = fruitImgs;
     this.bomb = bombImg;
+    this.crosshair = crosshairImg;
   }
 
   /** Returns a uniformly random fruit image. */
@@ -48,5 +53,10 @@ export class AssetRegistry {
   bombImage(): HTMLImageElement {
     if (!this.bomb) throw new Error('AssetRegistry not loaded');
     return this.bomb;
+  }
+
+  crosshairImage(): HTMLImageElement {
+    if (!this.crosshair) throw new Error('AssetRegistry not loaded');
+    return this.crosshair;
   }
 }

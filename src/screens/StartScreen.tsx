@@ -3,6 +3,7 @@
 // design in a follow-up CP; for now this is functional so the router
 // flow can be tested end-to-end.
 
+import { Button } from '../components/ui/Button';
 import './screen.css';
 
 export type StartScreenProps = {
@@ -16,12 +17,12 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
       <h1>FruitBurst</h1>
 
       <div className="screen-buttons">
-        <button className="screen-button" onClick={onStart}>
+        <Button variant="primary" onClick={onStart}>
           Start Game
-        </button>
-        <button className="screen-button ghost" onClick={onLeaderboard}>
+        </Button>
+        <Button variant="secondary" onClick={onLeaderboard}>
           Leaderboard
-        </button>
+        </Button>
       </div>
 
       <p className="screen-permission-note">

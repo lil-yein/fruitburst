@@ -27,6 +27,7 @@ import {
 } from '../game/state';
 import { AudioSystem } from '../game/audio';
 import { GESTURE, LIVES, PHYSICS, TRACKING } from '../game/config';
+import { Alert } from './ui/Alert';
 import './GameView.css';
 
 type Status = 'asking' | 'loading' | 'ready' | 'error';
@@ -157,6 +158,7 @@ export function GameView({ onGameOver }: GameViewProps) {
         let smoothed: { x: number; y: number } | null = null;
         let lastSeenMs = 0;
         const shots: ShotEffect[] = [];
+        const crosshairImg = assets.crosshairImage();
         let lastFrameMs = performance.now();
 
         const loop = (ts: number) => {
@@ -321,7 +323,7 @@ export function GameView({ onGameOver }: GameViewProps) {
           }
 
           if (smoothed && !handLost) {
-            drawCrosshair(ctx, smoothed.x, smoothed.y, dpr);
+            drawCrosshair(ctx, smoothed.x, smoothed.y, dpr, crosshairImg);
           }
           ctx.restore();
 
@@ -376,7 +378,9 @@ export function GameView({ onGameOver }: GameViewProps) {
       <WebcamPreview videoRef={videoRef} />
 
       {hud.handLost && status === 'ready' && !hud.gameOver && (
-        <div className="hand-lost-banner">Show your hand!</div>
+        <div className="hand-lost-wrapper">
+          <Alert>⚠️ Show your hand!</Alert>
+        </div>
       )}
 
       {status !== 'ready' && (
@@ -661,38 +665,24 @@ function drawHealEffect(
   ctx.restore();
 }
 
+/** On-screen crosshair size in CSS pixels. SVG native is 88×88; we scale
+ *  it down so the crosshair sits comfortably under the fingertip without
+ *  swallowing nearby fruits. */
+const CROSSHAIR_SIZE_CSS = 56;
+
 function drawCrosshair(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  dpr: number
+  dpr: number,
+  image: HTMLImageElement
 ): void {
-  const r = 14 * dpr;
+  const size = CROSSHAIR_SIZE_CSS * dpr;
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.strokeStyle = '#ff4fa6';
-  ctx.lineWidth = 3 * dpr;
-  ctx.shadowColor = 'rgba(255, 130, 200, 0.9)';
-  ctx.shadowBlur = 14 * dpr;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.32, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x - r * 1.7, y);
-  ctx.lineTo(x - r * 0.65, y);
-  ctx.moveTo(x + r * 0.65, y);
-  ctx.lineTo(x + r * 1.7, y);
-  ctx.moveTo(x, y - r * 1.7);
-  ctx.lineTo(x, y - r * 0.65);
-  ctx.moveTo(x, y + r * 0.65);
-  ctx.lineTo(x, y + r * 1.7);
-  ctx.strokeStyle = '#ff4fa6';
-  ctx.lineWidth = 2 * dpr;
-  ctx.stroke();
+  // Subtle pink glow under the SVG so it pops on the busy playfield.
+  ctx.shadowColor = 'rgba(254, 70, 182, 0.55)';
+  ctx.shadowBlur = 12 * dpr;
+  ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
   ctx.restore();
 }
 

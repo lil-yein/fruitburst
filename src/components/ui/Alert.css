@@ -1,0 +1,13 @@
+.fb-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 20px;
+  padding: 16px 32px;
+  background: #44082a;
+  color: #ffffff;
+  border-radius: 16px;
+}

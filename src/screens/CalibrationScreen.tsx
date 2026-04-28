@@ -3,6 +3,7 @@
 // tracking confirmation; this version just walks through the rules and
 // dumps the user into the game when they're set.
 
+import { Button } from '../components/ui/Button';
 import './screen.css';
 
 export type CalibrationScreenProps = {
@@ -35,12 +36,12 @@ export function CalibrationScreen({
       </div>
 
       <div className="screen-buttons">
-        <button className="screen-button" onClick={onReady}>
+        <Button variant="primary" onClick={onReady}>
           Let's get started!
-        </button>
-        <button className="screen-button ghost" onClick={onBack}>
+        </Button>
+        <Button variant="secondary" onClick={onBack}>
           Back
-        </button>
+        </Button>
       </div>
     </div>
   );

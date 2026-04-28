@@ -205,29 +205,22 @@
   display: block;
 }
 
-/* ── Hand-lost banner ───────────────────────────────────────────────── */
+/* ── Hand-lost wrapper ──────────────────────────────────────────────── */
+/* Positions the <Alert> pill at bottom-center with a subtle pulse. */
 
-.hand-lost-banner {
+.hand-lost-wrapper {
   position: absolute;
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--pink-500);
-  color: white;
-  font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: 1px;
-  padding: 12px 28px;
-  border-radius: 18px;
-  border: 3px solid white;
-  box-shadow: 0 4px 0 var(--pink-700);
   z-index: 6;
+  pointer-events: none;
   animation: hand-lost-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes hand-lost-pulse {
   0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, -4px); }
+  50%      { transform: translate(-50%, -4px); }
 }
 
 /* ── Status overlay (asking / loading / error) ──────────────────────── */
