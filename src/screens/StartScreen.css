@@ -1,6 +1,7 @@
 /* Start screen — same pink grid as the playfield, content stack centered. */
 
 .start-screen {
+  position: relative;
   width: 100vw;
   height: 100vh;
   box-sizing: border-box;
@@ -14,10 +15,15 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
+  overflow: hidden;
 }
 
-/* Outer stack: logo / description / buttons separated by 48px (Figma). */
+/* Outer stack: logo / description / buttons separated by 48px (Figma).
+   Sits above the floating decorations via z-index so clicks always
+   reach the buttons. */
 .start-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -65,4 +71,26 @@
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* Idle-floating decorations on the left/right edges. All 8 share the same
+   keyframe; the only thing that varies is animation-delay (set inline)
+   so they bob out of phase. */
+.start-decoration {
+  position: absolute;
+  pointer-events: none;
+  animation: start-float 3.6s ease-in-out infinite;
+  z-index: 0;
+}
+
+.start-decoration-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes start-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
 }
