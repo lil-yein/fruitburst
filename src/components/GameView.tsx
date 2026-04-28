@@ -144,11 +144,9 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
         await Promise.all([tracker.init(), assets.load()]);
         if (cancelled) return;
         setStatus('ready');
-
-        // Kick off background music once everything is loaded.
-        // Some browsers block autoplay until first user gesture; if so it's
-        // a no-op and the user's first flick will be silent. Fine.
-        void audio.startMusic();
+        // Music intentionally NOT started here — it kicks off the first
+        // time we transition out of `paused` state (i.e. when the
+        // calibration modal dismisses). See the loop below.
 
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Canvas 2D context unavailable');
@@ -166,6 +164,10 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
         const shots: ShotEffect[] = [];
         const crosshairImg = assets.crosshairImage();
         let lastFrameMs = performance.now();
+        // Track previous-frame paused state so we can fire music exactly
+        // once on the paused → unpaused transition (when the user clicks
+        // "Let's get started!" to dismiss the calibration modal).
+        let prevPaused = pausedRef.current;
 
         const loop = (ts: number) => {
           raf = requestAnimationFrame(loop);
@@ -251,6 +253,12 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
           // miss/game-over checks freeze; only the webcam preview and
           // crosshair tracking continue.
           const isPaused = pausedRef.current;
+          if (prevPaused && !isPaused) {
+            // Calibration just dismissed — kick off the music. (Idempotent;
+            // BackgroundMusic guards against multiple starts.)
+            void audio.startMusic();
+          }
+          prevPaused = isPaused;
           if (!gameState.gameOver && !isPaused) {
             const requests = spawner.update(dt);
             for (const req of requests) {

@@ -20,9 +20,9 @@
 
 .calibration-modal {
   position: relative;
-  width: 1064px;
+  width: 1080px;
   max-width: calc(100vw - 32px);
-  height: 474px;
+  height: 506px;
   background: #ffebef;
   border: 8px solid #ec6f9d;
   border-radius: 16px;
@@ -53,11 +53,14 @@
 .calibration-stripe.odd  { background: #f7cad1; }
 .calibration-stripe.even { background: #fce3e7; }
 
-/* Top content (graphics + descriptions) sits over the stripes. */
+/* Top content (graphics + descriptions) sits over the stripes. The
+   bottom 130px is reserved for the button area underneath. Padding
+   gives 32px headroom at the top, 32px on the sides, and 40px below
+   the descriptions before the lace divider. */
 .calibration-content {
   position: absolute;
   inset: 0 0 130px 0;
-  padding: 32px;
+  padding: 32px 32px 40px 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
