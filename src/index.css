@@ -9,6 +9,18 @@
   font-display: swap;
 }
 
+/* Webfont — Domino Mono Bold A, the LCD-style monospace used for in-modal
+ * instructional text (calibration, game-over). */
+@font-face {
+  font-family: 'Domino Mono';
+  src:
+    url('/fonts/DominoMono-BoldA.woff2') format('woff2'),
+    url('/fonts/DominoMono-BoldA.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Y2K low-poly girl-game palette. */
   --pink-50: #ffebef;

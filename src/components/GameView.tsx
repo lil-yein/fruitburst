@@ -87,9 +87,13 @@ export type GameViewProps = {
   /** Called once the game ends and the death animation has played out.
    *  Parent should switch to the game-over screen with this run's stats. */
   onGameOver: (result: GameRunResult) => void;
+  /** When true, gameplay is suspended: no spawning, no timer advance, no
+   *  game-over check. Webcam, MediaPipe, and the crosshair still update
+   *  so the player sees their hand tracking work during calibration. */
+  paused?: boolean;
 };
 
-export function GameView({ onGameOver }: GameViewProps) {
+export function GameView({ onGameOver, paused = false }: GameViewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState<Status>('asking');
@@ -99,6 +103,8 @@ export function GameView({ onGameOver }: GameViewProps) {
   // current callback without resubscribing.
   const onGameOverRef = useRef(onGameOver);
   onGameOverRef.current = onGameOver;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   useEffect(() => {
     const tracker = new HandTracker();
@@ -193,7 +199,7 @@ export function GameView({ onGameOver }: GameViewProps) {
               wrist.y,
               ts
             );
-            if (result.fired && smoothed && !gameState.gameOver) {
+            if (result.fired && smoothed && !gameState.gameOver && !pausedRef.current) {
               gameState.flicksTotal++;
               shots.push({ x: smoothed.x, y: smoothed.y, t: ts });
 
@@ -241,29 +247,35 @@ export function GameView({ onGameOver }: GameViewProps) {
           if (handLost) flick.reset();
 
           // ── Spawn + physics ────────────────────────────────────────
-          if (!gameState.gameOver) {
+          // Calibration overlay pauses gameplay: spawner, timer, and
+          // miss/game-over checks freeze; only the webcam preview and
+          // crosshair tracking continue.
+          const isPaused = pausedRef.current;
+          if (!gameState.gameOver && !isPaused) {
             const requests = spawner.update(dt);
             for (const req of requests) {
               entities.push(buildEntity(req, w, h, dpr, assets));
             }
           }
-          for (const e of entities) {
-            updateEntity(e, dt);
-            if (e.alive && isOffScreenBottom(e, h)) {
-              if (!gameState.gameOver) {
-                if (e.kind === 'fruit') {
-                  gameState.fruitsMissed++;
-                  damageLives(
-                    gameState,
-                    LIVES.missFruitPenalty,
-                    ts,
-                    spawner.getElapsed()
-                  );
-                } else {
-                  gameState.bombsAvoided++;
+          if (!isPaused) {
+            for (const e of entities) {
+              updateEntity(e, dt);
+              if (e.alive && isOffScreenBottom(e, h)) {
+                if (!gameState.gameOver) {
+                  if (e.kind === 'fruit') {
+                    gameState.fruitsMissed++;
+                    damageLives(
+                      gameState,
+                      LIVES.missFruitPenalty,
+                      ts,
+                      spawner.getElapsed()
+                    );
+                  } else {
+                    gameState.bombsAvoided++;
+                  }
                 }
+                e.alive = false;
               }
-              e.alive = false;
             }
           }
           for (let i = entities.length - 1; i >= 0; i--) {
