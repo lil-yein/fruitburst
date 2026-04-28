@@ -15,26 +15,33 @@ export type StartScreenProps = {
 type Decoration = {
   src: string;
   side: 'left' | 'right';
-  /** Vertical position as % of viewport. */ top: number;
-  /** Distance from edge as % of viewport. */ edge: number;
-  /** Size in CSS pixels. */ size: number;
-  /** Animation phase offset in seconds. */ delay: number;
+  /** Vertical position as % of viewport (top of the bounding box). */
+  top: number;
+  /** Distance from the chosen edge as % of viewport width. */
+  offset: number;
+  /** Bounding box width in css px (per Figma node 43:1867). */
+  w: number;
+  /** Bounding box height in css px. */
+  h: number;
+  /** Animation phase offset in seconds. */
+  delay: number;
 };
 
-// Eight decorations, four per side. All share one float animation; the
-// delay value is the only thing that varies the motion. Each fruit is
-// used at most once so the screen feels intentional rather than tiled.
+// Positions, sizes, and side assignments lifted directly from Figma node
+// 43:1867. Anchored to viewport % so the layout still scales when the
+// window isn't exactly 1280×832. Each fruit appears once; bomb lives in
+// the bottom-right.
 const DECORATIONS: Decoration[] = [
-  // ── Left side ──
-  { src: '/assets/fruits/apple.svg',     side: 'left',  top:  8, edge: 5,  size: 88, delay: 0.0 },
-  { src: '/assets/fruits/cherry.svg',    side: 'left',  top: 30, edge: 14, size: 72, delay: 0.5 },
-  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 56, edge: 6,  size: 92, delay: 1.0 },
-  { src: '/assets/bombs/bomb.svg',       side: 'left',  top: 78, edge: 12, size: 76, delay: 1.5 },
-  // ── Right side ──
-  { src: '/assets/fruits/orange.svg',    side: 'right', top: 12, edge: 6,  size: 84, delay: 0.3 },
-  { src: '/assets/fruits/banana.svg',    side: 'right', top: 36, edge: 14, size: 88, delay: 0.8 },
-  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 60, edge: 8,  size: 80, delay: 1.3 },
-  { src: '/assets/fruits/dragon.svg',    side: 'right', top: 82, edge: 12, size: 84, delay: 1.8 },
+  // ── Left side (top → bottom): cherry, kiwi, orange, dragon ──
+  { src: '/assets/fruits/cherry.svg',    side: 'left',  top: 18.3, offset:  5.1, w: 208, h: 208, delay: 0.0 },
+  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 26.2, offset: 16.5, w: 199, h: 309, delay: 0.4 },
+  { src: '/assets/fruits/orange.svg',    side: 'left',  top: 49.5, offset:  5.2, w: 141, h: 160, delay: 0.8 },
+  { src: '/assets/fruits/dragon.svg',    side: 'left',  top: 56.3, offset: 18.5, w: 169, h: 233, delay: 1.2 },
+  // ── Right side (top → bottom): apple, banana, pineapple, bomb ──
+  { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 12.3, w: 170, h: 183, delay: 0.2 },
+  { src: '/assets/fruits/banana.svg',    side: 'right', top: 31.0, offset:  5.2, w:  96, h: 173, delay: 0.6 },
+  { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 13.8, w: 160, h: 153, delay: 1.0 },
+  { src: '/assets/bombs/bomb.svg',       side: 'right', top: 62.1, offset:  4.4, w: 195, h: 195, delay: 1.4 },
 ];
 
 export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
@@ -46,9 +53,9 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
           className="start-decoration"
           style={{
             top: `${d.top}%`,
-            [d.side]: `${d.edge}%`,
-            width: d.size,
-            height: d.size,
+            [d.side]: `${d.offset}%`,
+            width: d.w,
+            height: d.h,
             animationDelay: `${d.delay}s`,
           }}
         >
