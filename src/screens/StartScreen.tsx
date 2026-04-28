@@ -31,12 +31,12 @@ type Decoration = {
 const DECORATIONS: Decoration[] = [
   // ── Left side (top → bottom): cherry, kiwi, orange, dragon ──
   { src: '/assets/fruits/cherry.svg',    side: 'left',  top: 18.3, offset:  5.1, w: 160, delay: 0.0 },
-  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 28.6, offset: 16.5, w: 140, delay: 0.4 },
+  { src: '/assets/fruits/kiwi.svg',      side: 'left',  top: 31.0, offset: 16.5, w: 140, delay: 0.4 },
   { src: '/assets/fruits/orange.svg',    side: 'left',  top: 49.5, offset:  5.2, w: 140, delay: 0.8 },
   { src: '/assets/fruits/dragon.svg',    side: 'left',  top: 56.3, offset: 18.5, w: 120, delay: 1.2 },
   // ── Right side (top → bottom): apple, banana, pineapple, bomb ──
   { src: '/assets/fruits/apple.svg',     side: 'right', top: 18.6, offset: 12.3, w: 140, delay: 0.2 },
-  { src: '/assets/fruits/banana.svg',    side: 'right', top: 33.4, offset:  5.2, w: 140, delay: 0.6 },
+  { src: '/assets/fruits/banana.svg',    side: 'right', top: 35.8, offset:  5.2, w: 140, delay: 0.6 },
   { src: '/assets/fruits/pineapple.svg', side: 'right', top: 47.1, offset: 13.8, w: 120, delay: 1.0 },
   { src: '/assets/bombs/bomb.svg',       side: 'right', top: 62.1, offset:  4.4, w: 140, delay: 1.4 },
 ];
