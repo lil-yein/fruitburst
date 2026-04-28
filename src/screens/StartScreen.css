@@ -16,20 +16,29 @@
   font-family: var(--font-display);
 }
 
+/* Outer stack: logo / description / buttons separated by 48px (Figma). */
 .start-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
-  max-width: 560px;
+  gap: 48px;
   text-align: center;
 }
 
 .start-logo {
-  width: 100%;
-  max-width: 480px;
+  width: 540px;
+  max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* Description block: headline + privacy with their own 24px gap so they
+   feel like a unit, separate from the 48px outer rhythm. */
+.start-description {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 }
 
 /* "Quick heads up..." — pink with a 2px white outer stroke. Same trick as
@@ -53,7 +62,7 @@
 
 .start-buttons {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
 }

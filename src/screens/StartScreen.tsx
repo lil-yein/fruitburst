@@ -20,15 +20,16 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
           className="start-logo"
         />
 
-        <p className="start-headline">
-          Quick heads up, we'll need your camera!
-        </p>
-
-        <p className="start-privacy">
-          Your webcam stays on your computer.
-          <br />
-          Nothing leaves, nothing is saved.
-        </p>
+        <div className="start-description">
+          <p className="start-headline">
+            Quick heads up, we'll need your camera!
+          </p>
+          <p className="start-privacy">
+            Your webcam stays on your computer.
+            <br />
+            Nothing leaves, nothing is saved.
+          </p>
+        </div>
 
         <div className="start-buttons">
           <Button variant="primary" onClick={onStart}>
