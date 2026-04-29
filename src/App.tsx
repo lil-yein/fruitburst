@@ -104,11 +104,7 @@ function App() {
               run={lastRun}
               onSubmit={handleSubmitScore}
               onPlayAgain={startNewRun}
-              onSkipToLeaderboard={() => {
-                setBoardCtx(null);
-                setLastRun(null);
-                goLeaderboard();
-              }}
+              onBackHome={goStart}
             />
           )}
         </>

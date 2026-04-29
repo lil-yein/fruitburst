@@ -1,6 +1,6 @@
 /*
- * Game-over modal — same overlay/card pattern as CalibrationModal but
- * narrower (less horizontal content) and taller (vertical stack).
+ * Game-over modal — Figma node 40:1553.
+ * Single striped pink card; the calibration's two-zone layout is gone.
  */
 
 .go-overlay {
@@ -20,12 +20,11 @@
 
 .go-modal {
   position: relative;
-  width: 540px;
+  width: 554px;
   max-width: calc(100vw - 32px);
-  height: 600px;
   max-height: calc(100vh - 32px);
   background: #ffebef;
-  border: 8px solid #ec6f9d;
+  border: 4px solid #ec6f9d;
   border-radius: 16px;
   overflow: hidden;
   font-family: var(--font-display);
@@ -38,151 +37,132 @@
   100% { transform: scale(1);    opacity: 1; }
 }
 
-/* Striped pink background fills the entire card; the button area painted
-   on top covers the bottom 240px. */
+/* Striped pink background — 11 alternating columns. */
 .go-stripes {
   position: absolute;
   inset: 0;
   display: flex;
+  pointer-events: none;
 }
 
 .go-stripe { flex: 1 1 0; height: 100%; }
 .go-stripe.odd  { background: #f7cad1; }
 .go-stripe.even { background: #fce3e7; }
 
-/* Top content sits over the stripes. */
+/* Content layered above the stripes. */
 .go-content {
-  position: absolute;
-  inset: 0 0 240px 0;
-  padding: 36px 32px 24px 32px;
+  position: relative;
+  padding: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 
-/* ── Title (double outer stroke) ─────────────────────────────────────
-   Three spans painted on top of each other:
-     back   → 8px lighter-pink stroke (visible 2px outer, since middle's
-              stroke + front's fill cover the rest)
-     middle → 4px white stroke (visible 2px, between text fill and
-              outer pink)
-     front  → solid pink fill, in normal flow so it sets the title's box
-              size and the back/middle layers can absolute-position over it. */
+/* ── Header: title + time ───────────────────────────────────────────── */
+.go-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+/* "Game Over" — pink fill with a light-pink offset shadow behind it.
+   text-shadow with a single negative-x offset replicates the Figma's
+   stacked-duplicate technique without needing two DOM nodes. */
 .go-title {
-  position: relative;
-  display: inline-block;
   margin: 0;
   font-family: var(--font-display);
   font-size: 24px;
   line-height: 28px;
-  letter-spacing: 1px;
-  white-space: nowrap;
-}
-
-.go-title-layer {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  white-space: nowrap;
-  display: block;
-}
-
-.go-title-layer.back {
-  position: absolute;
-  inset: 0;
-  -webkit-text-stroke: 8px #f7cad1;
-  paint-order: stroke fill;
-  color: transparent;
-  z-index: 1;
-}
-
-.go-title-layer.middle {
-  position: absolute;
-  inset: 0;
-  -webkit-text-stroke: 4px #ffffff;
-  paint-order: stroke fill;
-  color: transparent;
-  z-index: 2;
-}
-
-.go-title-layer.front {
-  position: relative;
   color: #ec6f9d;
-  z-index: 3;
+  text-shadow: -3px 0 0 #f7cad1;
+  text-align: center;
+  white-space: nowrap;
 }
 
-/* ── Time (single white outer stroke) ───────────────────────────────── */
 .go-time {
   font-family: var(--font-display);
   font-size: 36px;
   line-height: 40px;
   color: #44082a;
-  -webkit-text-stroke: 4px #ffffff;
-  paint-order: stroke fill;
   letter-spacing: 2px;
+  text-align: center;
   white-space: nowrap;
 }
 
-/* ── Results list ───────────────────────────────────────────────────── */
+/* ── Result grid (2×2 cards) ────────────────────────────────────────── */
 .go-results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 280px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
+  width: 100%;
+}
+
+.go-results-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* Each stat card: white-bordered pink-50 panel with a lace decoration
+   tucked just under the top edge. */
+.go-stat {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  background: #ffebef;
+  border: 4px solid #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 40px 24px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.go-stat-label,
+.go-stat-value {
+  margin: 0;
   font-family: var(--font-display);
   font-size: 16px;
   line-height: 20px;
   color: #44082a;
+  white-space: nowrap;
 }
 
-.go-results li {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 24px;
-}
-
-.go-results-value {
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Bottom button area (white-pink with lace divider) ──────────────── */
-.go-button-area {
+/* Lace strip pinned to the top of each card — extends 4px beyond each
+   side and the top so it tucks under the white border, then the card's
+   overflow:hidden trims the visible portion. */
+.go-stat-lace {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 240px;
-  background: #ffebef;
-  display: flex;
-  flex-direction: column;
-}
-
-.go-lace {
-  flex-shrink: 0;
-  width: 100%;
+  top: -4px;
+  left: -4px;
+  right: -4px;
   height: 27px;
   background-image: url('/assets/ui/lace.png');
   background-repeat: repeat-x;
   background-position: 0 0;
   background-size: auto 27px;
+  pointer-events: none;
 }
 
-.go-bottom {
-  flex: 1;
+/* ── Save score row: input fills, button hugs ───────────────────────── */
+.go-save-row {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 8px 32px 24px 32px;
+  gap: 12px;
+  width: 100%;
+  align-items: stretch;
 }
 
-.go-buttons {
+.go-name-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ── Action row: Play Again / Back Home ─────────────────────────────── */
+.go-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
