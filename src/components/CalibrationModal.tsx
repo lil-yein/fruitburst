@@ -57,7 +57,7 @@ export function CalibrationModal({ onReady, onBack }: CalibrationModalProps) {
 
           <div className="calibration-descriptions">
             <p className="calibration-desc">
-              Sit about 30 cm from your screen so we can see your hand
+              Sit about 30 cm from your screen so we can see your hand.
             </p>
             <p className="calibration-desc">
               Point with your index finger to aim. Flick UP to burst a fruit!

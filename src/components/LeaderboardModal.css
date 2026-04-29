@@ -136,9 +136,11 @@
   color: #44082a;
 }
 
+/* Highlight intentionally rendered identically to a regular row — keep
+   the visual rhythm consistent across the list. The just-submitted
+   entry can still be identified by sorting / value. */
 .lb-row--highlight {
-  background: #ffebef;
-  box-shadow: 0 0 0 2px #44082a;
+  /* no overrides */
 }
 
 .lb-row-left {

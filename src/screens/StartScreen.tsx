@@ -68,14 +68,42 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
   const successTimer = useRef<number | null>(null);
   const warningTimer = useRef<number | null>(null);
 
-  // Probe camera access on mount. We immediately release the tracks —
-  // we just need the OS-level permission flag flipped. GameView will
-  // re-request its own stream when it mounts.
+  // Probe camera access on mount. The Permissions API tells us whether
+  // the browser has already remembered a decision; we use that to skip
+  // the getUserMedia prompt (and the success toast) when the user has
+  // already granted previously. The toast is reserved for the *first*
+  // grant — subsequent reloads don't re-celebrate.
   useEffect(() => {
     let cancelled = false;
     let probeStream: MediaStream | null = null;
 
     (async () => {
+      let priorState: PermissionState | 'unknown' = 'unknown';
+      // Permissions API is unevenly supported for 'camera'; fall back
+      // to the getUserMedia probe path on any failure.
+      try {
+        const status = await navigator.permissions.query({
+          name: 'camera' as PermissionName,
+        });
+        priorState = status.state;
+      } catch {
+        // ignore — fallback path below still works
+      }
+
+      // Browser already remembers a decision: respect it without
+      // prompting or showing the success toast.
+      if (priorState === 'granted') {
+        if (!cancelled) setPermission('granted');
+        return;
+      }
+      if (priorState === 'denied') {
+        if (!cancelled) setPermission('denied');
+        return;
+      }
+
+      // priorState is 'prompt' (first time the user is being asked) or
+      // 'unknown' (Permissions API didn't report). Trigger the actual
+      // browser prompt now.
       try {
         probeStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user' },
@@ -83,7 +111,13 @@ export function StartScreen({ onStart, onLeaderboard }: StartScreenProps) {
         });
         if (cancelled) return;
         setPermission('granted');
-        triggerSuccessAlert();
+        // Only celebrate when we definitely know this was a fresh
+        // accept (priorState === 'prompt'). When the API didn't
+        // report, we can't tell — better to stay silent than to
+        // re-toast a returning user.
+        if (priorState === 'prompt') {
+          triggerSuccessAlert();
+        }
       } catch {
         if (cancelled) return;
         setPermission('denied');
