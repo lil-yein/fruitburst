@@ -1,0 +1,210 @@
+/*
+ * Leaderboard modal — Figma node 38:1377.
+ * 800×632 card, 16-column stripes, layered title, ranked rows, lace +
+ * button area at the bottom (same pattern as calibration's bottom
+ * section).
+ */
+
+.lb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 16, 17, 0.20);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  animation: lb-fade-in 0.2s ease-out;
+}
+
+@keyframes lb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.lb-modal {
+  position: relative;
+  width: 800px;
+  max-width: calc(100vw - 32px);
+  height: 632px;
+  max-height: calc(100vh - 32px);
+  background: #ffebef;
+  border: 8px solid #ec6f9d;
+  border-radius: 16px;
+  overflow: hidden;
+  font-family: var(--font-display);
+  color: #44082a;
+  animation: lb-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes lb-pop-in {
+  0%   { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* 16 alternating pink columns fill the entire modal background. */
+.lb-stripes {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+.lb-stripe { flex: 1 1 0; height: 100%; }
+.lb-stripe.odd  { background: #f7cad1; }
+.lb-stripe.even { background: #fce3e7; }
+
+/* ── Title: plum fill, 4px white stroke, 2px light-pink stroke ──────── */
+.lb-title {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  height: 40px;
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.lb-title-layer {
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* Outer-most: 12px stroke → 6px visible outer; 4px of that gets
+   covered by the white middle, leaving a 2px-wide light-pink ring
+   at 4–6px from the glyph edge. */
+.lb-title-layer.back {
+  position: absolute;
+  inset: 0;
+  -webkit-text-stroke: 12px #f7cad1;
+  paint-order: stroke fill;
+  color: transparent;
+  z-index: 1;
+}
+
+/* Middle: 8px stroke → 4px visible outer white. */
+.lb-title-layer.middle {
+  position: absolute;
+  inset: 0;
+  -webkit-text-stroke: 8px #ffffff;
+  paint-order: stroke fill;
+  color: transparent;
+  z-index: 2;
+}
+
+/* Front: solid plum fill, in normal flow so it sets the title's box. */
+.lb-title-layer.front {
+  position: relative;
+  color: #44082a;
+  z-index: 3;
+}
+
+/* ── Ranked rows ────────────────────────────────────────────────────── */
+.lb-list {
+  position: absolute;
+  top: 116px;
+  left: 32px;
+  width: 720px;
+  bottom: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  /* Hide scrollbar for cleanliness; the list isn't expected to overflow
+     past the top-10 entries, but if a user has DPR/zoom + few entries
+     fit, we still want it to work. */
+  scrollbar-width: thin;
+}
+
+.lb-row {
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 4px solid #ec6f9d;
+  border-radius: 16px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 20px;
+  color: #44082a;
+}
+
+.lb-row--highlight {
+  background: #ffebef;
+  box-shadow: 0 0 0 2px #44082a;
+}
+
+.lb-row-left {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  min-width: 0;
+}
+
+.lb-row-rank {
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.lb-row-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-row-right {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-empty {
+  margin: 0;
+  padding: 60px 24px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 22px;
+  color: #44082a;
+  opacity: 0.7;
+}
+
+/* ── Bottom button area: solid pink-50 with lace divider ────────────── */
+.lb-button-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 130px;
+  background: #ffebef;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lb-lace {
+  flex-shrink: 0;
+  width: 100%;
+  height: 27px;
+  background-image: url('/assets/ui/lace.png');
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  background-size: auto 27px;
+}
+
+.lb-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 17px;
+}
