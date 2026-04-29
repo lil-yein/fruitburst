@@ -126,6 +126,11 @@ function App() {
           entries={boardCtx?.entries}
           highlightName={boardCtx?.highlightName}
           highlightTime={boardCtx?.highlightTime}
+          // boardCtx is only set after a fresh save → user just finished
+          // a run, so the primary action is a re-roll. From the start
+          // screen the board opens cold and the primary action is to
+          // play for the first time.
+          playButtonLabel={boardCtx ? 'Play Again' : 'Play Game'}
           onPlayAgain={startNewRun}
           onBackHome={goStart}
         />

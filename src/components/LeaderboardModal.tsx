@@ -17,6 +17,10 @@ export type LeaderboardModalProps = {
   entries?: LeaderboardEntry[];
   highlightName?: string;
   highlightTime?: number;
+  /** Label for the primary action. "Play Game" when the user is opening
+   *  the board cold from the start screen; "Play Again" when they just
+   *  finished a run. */
+  playButtonLabel?: string;
   onPlayAgain: () => void;
   onBackHome: () => void;
 };
@@ -46,6 +50,7 @@ export function LeaderboardModal({
   entries: initialEntries,
   highlightName,
   highlightTime,
+  playButtonLabel = 'Play Again',
   onPlayAgain,
   onBackHome,
 }: LeaderboardModalProps) {
@@ -113,7 +118,7 @@ export function LeaderboardModal({
           <div className="lb-lace" />
           <div className="lb-buttons">
             <Button variant="primary" onClick={onPlayAgain}>
-              Play Again
+              {playButtonLabel}
             </Button>
             <Button variant="secondary" onClick={onBackHome}>
               Back Home
