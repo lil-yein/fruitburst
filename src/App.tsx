@@ -1,27 +1,26 @@
 // Top-level screen router.
 //
-// Five visible states: 'start' | 'game' | 'game-over' | 'leaderboard',
-// plus a `showCalibration` overlay flag layered on top of 'game'. The
-// CalibrationModal renders over a paused GameView so the player sees
-// the empty playfield + their webcam preview while reading the
-// instructions; clicking "Let's get started!" lifts the pause and
-// gameplay begins.
+// Three visible routes — 'start' | 'game' | 'leaderboard' — plus two
+// overlay flags layered on top of 'game':
+//   • showCalibration → CalibrationModal (gameplay paused)
+//   • lastRun !== null → GameOverModal   (gameplay frozen via internal
+//                                         gameState.gameOver)
 //
-// Game state is intentionally not lifted: each mount of <GameView />
-// creates a fresh tracker / spawner / audio system / GameState, so
-// going game-over → game (Play Again) unmounts and remounts a clean
-// instance — reset for free.
+// Game state is intentionally not lifted up. Each mount of <GameView />
+// builds a fresh tracker / spawner / audio / GameState, so changing the
+// `runId` key on Play Again forces React to unmount the dead game and
+// remount a clean one — automatic reset.
 
 import { useState } from 'react';
 import { GameView, type GameRunResult } from './components/GameView';
 import { CalibrationModal } from './components/CalibrationModal';
+import { GameOverModal } from './components/GameOverModal';
 import { StartScreen } from './screens/StartScreen';
-import { GameOverScreen } from './screens/GameOverScreen';
 import { LeaderboardScreen } from './screens/LeaderboardScreen';
 import type { LeaderboardEntry } from './game/leaderboard';
 import './App.css';
 
-type Screen = 'start' | 'game' | 'game-over' | 'leaderboard';
+type Screen = 'start' | 'game' | 'leaderboard';
 
 type LeaderboardContext = {
   entries: LeaderboardEntry[];
@@ -33,6 +32,8 @@ function App() {
   const [screen, setScreen] = useState<Screen>('start');
   const [showCalibration, setShowCalibration] = useState(false);
   const [lastRun, setLastRun] = useState<GameRunResult | null>(null);
+  // Bumped on Play Again to force a fresh GameView mount (clean state).
+  const [runId, setRunId] = useState(0);
   // When the player just submitted a score we hand the resulting top-N
   // list straight to the leaderboard screen so it can highlight their
   // entry without a re-read race.
@@ -41,16 +42,22 @@ function App() {
   const goStart = () => {
     setScreen('start');
     setShowCalibration(false);
+    setLastRun(null);
   };
-  const goGame = () => {
-    setScreen('game');
+
+  /** Start a new run from any screen — forces a fresh GameView mount and
+   *  shows the calibration modal on top. */
+  const startNewRun = () => {
+    setRunId((r) => r + 1);
+    setLastRun(null);
     setShowCalibration(true);
+    setScreen('game');
   };
+
   const goLeaderboard = () => setScreen('leaderboard');
 
   const handleGameOver = (result: GameRunResult) => {
     setLastRun(result);
-    setScreen('game-over');
   };
 
   const handleSubmitScore = (
@@ -63,6 +70,7 @@ function App() {
       highlightName: submittedName,
       highlightTime: lastRun.timeSec,
     });
+    setLastRun(null);
     setScreen('leaderboard');
   };
 
@@ -70,7 +78,7 @@ function App() {
     <>
       {screen === 'start' && (
         <StartScreen
-          onStart={goGame}
+          onStart={startNewRun}
           onLeaderboard={() => {
             setBoardCtx(null);
             goLeaderboard();
@@ -80,26 +88,30 @@ function App() {
 
       {screen === 'game' && (
         <>
-          <GameView paused={showCalibration} onGameOver={handleGameOver} />
+          <GameView
+            key={runId}
+            paused={showCalibration}
+            onGameOver={handleGameOver}
+          />
           {showCalibration && (
             <CalibrationModal
               onReady={() => setShowCalibration(false)}
               onBack={goStart}
             />
           )}
+          {lastRun && !showCalibration && (
+            <GameOverModal
+              run={lastRun}
+              onSubmit={handleSubmitScore}
+              onPlayAgain={startNewRun}
+              onSkipToLeaderboard={() => {
+                setBoardCtx(null);
+                setLastRun(null);
+                goLeaderboard();
+              }}
+            />
+          )}
         </>
-      )}
-
-      {screen === 'game-over' && lastRun && (
-        <GameOverScreen
-          run={lastRun}
-          onSubmit={handleSubmitScore}
-          onPlayAgain={goGame}
-          onSkipToLeaderboard={() => {
-            setBoardCtx(null);
-            goLeaderboard();
-          }}
-        />
       )}
 
       {screen === 'leaderboard' && (
