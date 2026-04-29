@@ -15,6 +15,23 @@
   cursor: not-allowed;
 }
 
+/* "Soft" disabled — looks disabled (opacity 0.5) but stays clickable
+ * so the parent can intercept presses (e.g. surface a permission-
+ * required toast). Hover lift suppressed; press inset suppressed. */
+.fb-button.fb-button--soft-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.fb-button.fb-button--soft-disabled:hover,
+.fb-button.fb-button--soft-disabled:active {
+  transform: none;
+  box-shadow: 0 4px 0 #44082a;
+}
+.fb-button--secondary.fb-button--soft-disabled:hover,
+.fb-button--secondary.fb-button--soft-disabled:active {
+  box-shadow: 0 4px 0 #ec6f9d;
+}
+
 /* Primary: pink fill, light-pink border, dark plum drop shadow.
  * Text gets a 2px outer plum stroke. -webkit-text-stroke draws stroke
  * centered on the glyph edge, so 4px width with paint-order:stroke-fill

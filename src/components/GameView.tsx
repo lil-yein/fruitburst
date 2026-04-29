@@ -234,6 +234,7 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
                   effects.push(createExplosionEffect(hit.x, hit.y, ts));
                   shake.intensity = SHAKE_KICK_PX * dpr;
                   audio.playBomb();
+                  audio.playMistake();
                   damageLives(
                     gameState,
                     LIVES.shootBombPenalty,
@@ -272,6 +273,7 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
                 if (!gameState.gameOver) {
                   if (e.kind === 'fruit') {
                     gameState.fruitsMissed++;
+                    audio.playMistake();
                     damageLives(
                       gameState,
                       LIVES.missFruitPenalty,
@@ -295,6 +297,7 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
           if (gameState.gameOver && !gameOverHandoffScheduled) {
             gameOverHandoffScheduled = true;
             audio.stopMusic();
+            audio.playGameOver();
             gameOverHandoffTimer = window.setTimeout(() => {
               if (cancelled) return;
               onGameOverRef.current({

@@ -8,9 +8,13 @@
 const MUSIC_URL = '/assets/music/background.mp3';
 const POP_URL = '/assets/sfx/pop.mp3';
 const BOMB_URL = '/assets/sfx/bomb.mp3';
+const MISTAKE_URL = '/assets/sfx/mistake.mp3';
+const GAMEOVER_URL = '/assets/sfx/gameover.mp3';
+const CLICK_URL = '/assets/sfx/click.mp3';
 
 const MUSIC_VOLUME = 0.4;
 const SFX_VOLUME = 0.7;
+const CLICK_VOLUME = 0.5;
 const FADE_MS = 1800;
 
 type FadeAnim = { id: number };
@@ -116,11 +120,11 @@ class SfxPool {
   private pool: HTMLAudioElement[] = [];
   private nextIdx = 0;
 
-  constructor(url: string, size: number) {
+  constructor(url: string, size: number, volume: number = SFX_VOLUME) {
     for (let i = 0; i < size; i++) {
       const a = new Audio(url);
       a.preload = 'auto';
-      a.volume = SFX_VOLUME;
+      a.volume = volume;
       this.pool.push(a);
     }
   }
@@ -137,6 +141,8 @@ export class AudioSystem {
   private music = new BackgroundMusic();
   private pop = new SfxPool(POP_URL, 6);
   private bomb = new SfxPool(BOMB_URL, 3);
+  private mistake = new SfxPool(MISTAKE_URL, 3);
+  private gameover = new SfxPool(GAMEOVER_URL, 1);
 
   startMusic(): Promise<void> {
     return this.music.start();
@@ -153,4 +159,28 @@ export class AudioSystem {
   playBomb(): void {
     this.bomb.play();
   }
+
+  /** Life-lost cue — fires on a missed fruit (-0.5) or shot bomb (-1). */
+  playMistake(): void {
+    this.mistake.play();
+  }
+
+  /** One-shot played as the run ends (lives → 0). */
+  playGameOver(): void {
+    this.gameover.play();
+  }
+}
+
+// ─── Global UI click pool ─────────────────────────────────────────────
+//
+// Lives outside AudioSystem because button clicks fire from non-game
+// contexts too (start screen, modals, leaderboard). Lazily constructed
+// on first use so the file is cheap to import in SSR / tests.
+let uiClickPool: SfxPool | null = null;
+
+export function playUiClick(): void {
+  if (!uiClickPool) {
+    uiClickPool = new SfxPool(CLICK_URL, 4, CLICK_VOLUME);
+  }
+  uiClickPool.play();
 }
