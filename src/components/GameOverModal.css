@@ -68,12 +68,13 @@
   width: 100%;
 }
 
-/* "Game Over" — pink fill ringed by a 2px white stroke, then a 4px
+/* "Game Over" — pink fill ringed by a 2px white stroke, then a 2px
    light-pink stroke beyond that. Three stacked layers because
    -webkit-text-stroke only paints one ring per node:
-     • back layer: 12px #F7CAD1 stroke  → 6px visible outer (the
-                   middle's stroke + front's fill cover the inner 6px)
-     • middle:     4px #FFFFFF stroke   → 2px visible outer (front's
+     • back layer: 8px #F7CAD1 stroke  → 4px visible outer (the
+                   middle's white at 0–2px covers half of it, leaving
+                   a 2px-wide pink ring at 2–4px from the glyph edge)
+     • middle:     4px #FFFFFF stroke  → 2px visible outer (front's
                    fill covers the inner 2px)
      • front:      solid #EC6F9D fill — in normal flow so it sets the
                    title's box size; back/middle absolute over it. */
@@ -99,7 +100,7 @@
 .go-title-layer.back {
   position: absolute;
   inset: 0;
-  -webkit-text-stroke: 12px #f7cad1;
+  -webkit-text-stroke: 8px #f7cad1;
   paint-order: stroke fill;
   color: transparent;
   z-index: 1;
