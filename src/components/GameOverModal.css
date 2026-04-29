@@ -68,25 +68,67 @@
   width: 100%;
 }
 
-/* "Game Over" — pink fill with a light-pink offset shadow behind it.
-   text-shadow with a single negative-x offset replicates the Figma's
-   stacked-duplicate technique without needing two DOM nodes. */
+/* "Game Over" — pink fill ringed by a 2px white stroke, then a 4px
+   light-pink stroke beyond that. Three stacked layers because
+   -webkit-text-stroke only paints one ring per node:
+     • back layer: 12px #F7CAD1 stroke  → 6px visible outer (the
+                   middle's stroke + front's fill cover the inner 6px)
+     • middle:     4px #FFFFFF stroke   → 2px visible outer (front's
+                   fill covers the inner 2px)
+     • front:      solid #EC6F9D fill — in normal flow so it sets the
+                   title's box size; back/middle absolute over it. */
 .go-title {
+  position: relative;
+  display: inline-block;
   margin: 0;
   font-family: var(--font-display);
   font-size: 24px;
   line-height: 28px;
-  color: #ec6f9d;
-  text-shadow: -3px 0 0 #f7cad1;
   text-align: center;
   white-space: nowrap;
 }
 
+.go-title-layer {
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.go-title-layer.back {
+  position: absolute;
+  inset: 0;
+  -webkit-text-stroke: 12px #f7cad1;
+  paint-order: stroke fill;
+  color: transparent;
+  z-index: 1;
+}
+
+.go-title-layer.middle {
+  position: absolute;
+  inset: 0;
+  -webkit-text-stroke: 4px #ffffff;
+  paint-order: stroke fill;
+  color: transparent;
+  z-index: 2;
+}
+
+.go-title-layer.front {
+  position: relative;
+  color: #ec6f9d;
+  z-index: 3;
+}
+
+/* Time digits — plum fill + 2px white outer stroke. 4px stroke +
+   paint-order:stroke fill yields the spec'd 2px visible outer. */
 .go-time {
   font-family: var(--font-display);
   font-size: 36px;
   line-height: 40px;
   color: #44082a;
+  -webkit-text-stroke: 4px #ffffff;
+  paint-order: stroke fill;
   letter-spacing: 2px;
   text-align: center;
   white-space: nowrap;

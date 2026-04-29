@@ -70,8 +70,14 @@ export function GameOverModal({
         <div className="go-content">
           {/* Title + time block */}
           <div className="go-header">
-            {/* "Game Over" — pink front + light-pink shadow offset behind. */}
-            <h1 className="go-title">Game Over</h1>
+            {/* "Game Over" — pink fill + 2px white stroke + 4px light-pink
+                stroke. Three stacked spans because -webkit-text-stroke can
+                only express one ring per element. */}
+            <h1 className="go-title">
+              <span className="go-title-layer back">Game Over</span>
+              <span className="go-title-layer middle">Game Over</span>
+              <span className="go-title-layer front">Game Over</span>
+            </h1>
             <div className="go-time">
               {pad2(minutes)} : {pad2(seconds)} : {pad2(cs)}
             </div>
