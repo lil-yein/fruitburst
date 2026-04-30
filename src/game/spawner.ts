@@ -4,6 +4,9 @@
 // config.DIFFICULTY, and emits SpawnRequests at the tier's spawn interval.
 // Each cycle may produce a small cluster (1–4) of objects. Bomb cadence is
 // per-tier (1 bomb every N fruits) and is preserved across spawn cycles.
+// The caller passes the current in-flight entity count so the spawner can
+// clamp cluster size to (SPAWN.maxConcurrent − active) and skip spawning
+// when the playfield is already full.
 
 import { DIFFICULTY, SPAWN, type DifficultyTier } from './config';
 
@@ -29,8 +32,17 @@ export class Spawner {
   private spawnTimer = 0;
   private fruitsSinceLastBomb = 0;
 
-  /** Advance the spawn clock by dt seconds. Returns 0+ requests to spawn. */
-  update(dt: number): SpawnRequest[] {
+  /**
+   * Advance the spawn clock by `dt` seconds. Returns 0+ requests to spawn.
+   *
+   * @param dt seconds elapsed since last call.
+   * @param activeCount current number of in-flight entities. The spawner
+   *        clamps cluster size to (SPAWN.maxConcurrent − activeCount) and
+   *        emits nothing when the playfield is already full. The spawn
+   *        timer still advances so the next available cycle fires
+   *        immediately rather than waiting another full interval.
+   */
+  update(dt: number, activeCount: number): SpawnRequest[] {
     this.elapsed += dt;
     this.spawnTimer += dt;
 
@@ -38,10 +50,14 @@ export class Spawner {
     if (this.spawnTimer < tier.spawnIntervalSec) return [];
     this.spawnTimer = 0;
 
+    const remaining = SPAWN.maxConcurrent - activeCount;
+    if (remaining <= 0) return [];
+
     const cluster = Math.random() < SPAWN.clusterChance;
-    const count = cluster
+    const rolled = cluster
       ? randInt(SPAWN.clusterMin, SPAWN.clusterMax)
       : 1;
+    const count = Math.min(rolled, remaining);
 
     const out: SpawnRequest[] = [];
     for (let i = 0; i < count; i++) {

@@ -261,7 +261,10 @@ export function GameView({ onGameOver, paused = false }: GameViewProps) {
           }
           prevPaused = isPaused;
           if (!gameState.gameOver && !isPaused) {
-            const requests = spawner.update(dt);
+            // Spawner clamps cluster size against entities already in
+            // flight so the playfield never holds more than
+            // SPAWN.maxConcurrent items at once.
+            const requests = spawner.update(dt, entities.length);
             for (const req of requests) {
               entities.push(buildEntity(req, w, h, dpr, assets));
             }
@@ -535,16 +538,28 @@ function buildEntity(
     (req.kind === 'bomb' ? PHYSICS.bombSize : PHYSICS.fruitSize) * dpr;
   const y = canvasH + size;
 
+  // Difficulty-tier "speedMultiplier" k compresses trajectory timing.
+  // Velocity scales by k, gravity by k², so peak height (= v² / 2g)
+  // and horizontal reach are both invariant — only the time the fruit
+  // spends in the air changes. We compute vy from a *target apogee*
+  // expressed as a fraction of canvas height, which guarantees the
+  // peak stays inside the visible area regardless of viewport size or
+  // tier (with a small `size` buffer below the top edge).
   const k = req.speedMultiplier;
-  const vyMin = PHYSICS.initialVyMin * dpr * k;
-  const vyMax = PHYSICS.initialVyMax * dpr * k;
-  const vy = vyMin + Math.random() * (vyMax - vyMin);
+  const baseGravity = PHYSICS.gravity * dpr;
+  const peakRatio =
+    PHYSICS.peakHeightMinRatio +
+    Math.random() * (PHYSICS.peakHeightMaxRatio - PHYSICS.peakHeightMinRatio);
+  const peakHeight = canvasH * peakRatio;
+  const baseVy = -Math.sqrt(2 * baseGravity * peakHeight);
+  const vy = baseVy * k;
+
   const vxRange = PHYSICS.initialVxRange * dpr * k;
   const centerOffset = (x - canvasW / 2) / (canvasW / 2);
   const vx =
     -centerOffset * vxRange * 0.7 +
     (Math.random() * 2 - 1) * vxRange * 0.3;
-  const gravity = PHYSICS.gravity * dpr * k * k;
+  const gravity = baseGravity * k * k;
   const angularVelocity = (Math.random() * 2 - 1) * PHYSICS.spinRange * k;
 
   return {

@@ -87,9 +87,15 @@ export const TRACKING = {
 // Physics constants in CSS pixels (multiplied by devicePixelRatio at runtime
 // so visible motion is consistent across HiDPI / standard displays).
 export const PHYSICS = {
-  gravity: 1100,           // px / s^2 (downward) — softer so fruits peak higher
-  initialVyMin: -1350,     // px / s (upward, weaker launch)
-  initialVyMax: -1700,     // px / s (upward, stronger launch)
+  gravity: 1100,           // px / s^2 (downward)
+  // Launch is computed FROM a target apogee height instead of a raw vy
+  // value: vy = √(2·g·h). The target height is a fraction of canvas
+  // height, so fruits never breach the top edge regardless of viewport
+  // size. Peak is invariant under the difficulty's k² gravity scaling
+  // (vy scales by k, g by k² → peak = vy²/2g unchanged), so the same
+  // ratios work at every tier.
+  peakHeightMinRatio: 0.55, // weakest launch: 55% of canvas height
+  peakHeightMaxRatio: 0.80, // strongest launch: 80%
   initialVxRange: 380,     // ± px / s horizontal
   spinRange: 4,            // rad / s ± rotation
   // Maximum render dimension (in css px). Used to scale each image while
@@ -108,17 +114,30 @@ export type DifficultyTier = {
   bombsPerNFruits: number;
 };
 
+// Difficulty steps every 30s with gentler per-step jumps than the
+// original 60s/180s table — keeps escalation continuous instead of
+// shocking. Plateaus at 5 minutes; runs may continue indefinitely.
 export const DIFFICULTY: DifficultyTier[] = [
-  { untilSec: 60,        spawnIntervalSec: 2.0, speedMultiplier: 1.0, bombsPerNFruits: 15 },
-  { untilSec: 180,       spawnIntervalSec: 1.3, speedMultiplier: 1.4, bombsPerNFruits: 12 },
-  { untilSec: 300,       spawnIntervalSec: 1.0, speedMultiplier: 1.7, bombsPerNFruits: 10 },
-  { untilSec: Infinity,  spawnIntervalSec: 1.0, speedMultiplier: 1.7, bombsPerNFruits: 10 },
+  { untilSec:  30,       spawnIntervalSec: 2.0,  speedMultiplier: 1.00, bombsPerNFruits: 18 },
+  { untilSec:  60,       spawnIntervalSec: 1.8,  speedMultiplier: 1.08, bombsPerNFruits: 16 },
+  { untilSec:  90,       spawnIntervalSec: 1.6,  speedMultiplier: 1.16, bombsPerNFruits: 15 },
+  { untilSec: 120,       spawnIntervalSec: 1.5,  speedMultiplier: 1.22, bombsPerNFruits: 14 },
+  { untilSec: 150,       spawnIntervalSec: 1.4,  speedMultiplier: 1.28, bombsPerNFruits: 13 },
+  { untilSec: 180,       spawnIntervalSec: 1.3,  speedMultiplier: 1.34, bombsPerNFruits: 12 },
+  { untilSec: 210,       spawnIntervalSec: 1.2,  speedMultiplier: 1.40, bombsPerNFruits: 12 },
+  { untilSec: 240,       spawnIntervalSec: 1.15, speedMultiplier: 1.46, bombsPerNFruits: 11 },
+  { untilSec: 270,       spawnIntervalSec: 1.10, speedMultiplier: 1.52, bombsPerNFruits: 10 },
+  { untilSec: 300,       spawnIntervalSec: 1.05, speedMultiplier: 1.58, bombsPerNFruits: 10 },
+  { untilSec: Infinity,  spawnIntervalSec: 1.00, speedMultiplier: 1.60, bombsPerNFruits: 10 },
 ];
 
 export const SPAWN = {
   clusterMin: 1,
   clusterMax: 4,
   clusterChance: 0.25,
+  // Hard cap on items in flight at once. The spawner clamps cluster
+  // size to (max - currentCount) and skips spawning entirely when full.
+  maxConcurrent: 3,
 } as const;
 
 export const LEADERBOARD = {
