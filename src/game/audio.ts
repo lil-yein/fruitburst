@@ -1,9 +1,14 @@
 // Audio system.
 //
-// Background music uses two Audio elements in a ping-pong crossfade so
-// each loop boundary is a smooth ~2s fade rather than a hard cut. SFX
-// are short one-shots; we keep a small pool of clones per sound so
-// rapid successive triggers don't cut each other off.
+// Two paths:
+//   • Background music — HTMLAudioElement with two-element ping-pong
+//     crossfade for smooth ~2s loop boundaries. Doesn't need low
+//     latency; HTMLAudio is fine.
+//   • SFX (pop, bomb, mistake, gameover, ui click) — Web Audio API.
+//     We fetch each clip once, decode to an AudioBuffer, and trigger
+//     a fresh AudioBufferSourceNode per play. Latency is ~zero
+//     (microseconds) once the buffer is loaded, vs HTMLAudio.play()
+//     which scheduled a perceptible delay especially on first call.
 
 const MUSIC_URL = '/assets/music/background.mp3';
 const POP_URL = '/assets/sfx/pop.mp3';
@@ -16,6 +21,8 @@ const MUSIC_VOLUME = 0.4;
 const SFX_VOLUME = 0.7;
 const CLICK_VOLUME = 0.5;
 const FADE_MS = 1800;
+
+// ─── Background music (HTMLAudio crossfade) ──────────────────────────
 
 type FadeAnim = { id: number };
 
@@ -66,7 +73,6 @@ class BackgroundMusic {
     if (track !== this.active) return;
     if (!Number.isFinite(track.duration)) return;
     const remaining = track.duration - track.currentTime;
-    // Start crossfading when ~FADE_MS remains.
     if (remaining < FADE_MS / 1000 + 0.05 && this.idle.paused) {
       this.crossfade();
     }
@@ -85,9 +91,7 @@ class BackgroundMusic {
       FADE_MS,
       this.active === this.a ? this.fadeA : this.fadeB
     );
-    // Swap active/idle.
     [this.active, this.idle] = [this.idle, this.active];
-    // After fade-out finishes, pause the now-idle track so we can rewind.
     setTimeout(() => {
       if (this.idle.volume === 0) this.idle.pause();
     }, FADE_MS + 100);
@@ -101,7 +105,6 @@ class BackgroundMusic {
       await this.active.play();
       fadeVolume(this.active, 0, MUSIC_VOLUME, FADE_MS, this.fadeA);
     } catch {
-      // Autoplay blocked. Caller can retry on user interaction.
       this.started = false;
     }
   }
@@ -116,33 +119,100 @@ class BackgroundMusic {
   }
 }
 
-class SfxPool {
-  private pool: HTMLAudioElement[] = [];
-  private nextIdx = 0;
+// ─── Web Audio SFX ───────────────────────────────────────────────────
 
-  constructor(url: string, size: number, volume: number = SFX_VOLUME) {
-    for (let i = 0; i < size; i++) {
-      const a = new Audio(url);
-      a.preload = 'auto';
-      a.volume = volume;
-      this.pool.push(a);
+/** Lazily-created shared AudioContext. Browsers limit how many an app
+ *  can have, and they fire warnings if one isn't reused. */
+let sharedCtx: AudioContext | null = null;
+
+type AudioContextCtor = typeof AudioContext;
+type WindowWithWebkit = typeof window & {
+  webkitAudioContext?: AudioContextCtor;
+};
+
+function getAudioContext(): AudioContext | null {
+  if (sharedCtx) return sharedCtx;
+  const w = window as WindowWithWebkit;
+  const Ctor = window.AudioContext ?? w.webkitAudioContext;
+  if (!Ctor) return null; // Web Audio unsupported (very old browsers)
+  sharedCtx = new Ctor();
+  return sharedCtx;
+}
+
+/** Most autoplay policies suspend the AudioContext until the page
+ *  receives a user gesture. This wires a one-shot pointerdown listener
+ *  that resumes it. After resume the listener self-removes. */
+let resumeListenerAttached = false;
+function ensureResumeOnGesture(): void {
+  if (resumeListenerAttached) return;
+  resumeListenerAttached = true;
+  const resume = () => {
+    sharedCtx?.resume().catch(() => {});
+    window.removeEventListener('pointerdown', resume);
+    window.removeEventListener('keydown', resume);
+    window.removeEventListener('touchstart', resume);
+  };
+  window.addEventListener('pointerdown', resume, { once: true });
+  window.addEventListener('keydown', resume, { once: true });
+  window.addEventListener('touchstart', resume, { once: true });
+}
+
+/**
+ * Single-clip Web Audio player. Fetches + decodes once on construction,
+ * then `play()` is a microsecond-cost call (creates a new buffer source
+ * node and starts it). Multiple plays overlap freely.
+ */
+class SfxPlayer {
+  private buffer: AudioBuffer | null = null;
+  private gain: GainNode | null = null;
+  private ready = false;
+
+  constructor(url: string, volume: number) {
+    const ctx = getAudioContext();
+    if (!ctx) return; // Web Audio unsupported — play() will be a no-op.
+    ensureResumeOnGesture();
+
+    this.gain = ctx.createGain();
+    this.gain.gain.value = volume;
+    this.gain.connect(ctx.destination);
+
+    void this.load(url, ctx);
+  }
+
+  private async load(url: string, ctx: AudioContext): Promise<void> {
+    try {
+      const res = await fetch(url);
+      const arr = await res.arrayBuffer();
+      // decodeAudioData accepts a callback in older Safari; the modern
+      // promise form covers everything we target.
+      this.buffer = await ctx.decodeAudioData(arr);
+      this.ready = true;
+    } catch {
+      // leave ready=false → play() is a no-op
     }
   }
 
   play(): void {
-    const a = this.pool[this.nextIdx];
-    this.nextIdx = (this.nextIdx + 1) % this.pool.length;
-    a.currentTime = 0;
-    void a.play().catch(() => {});
+    if (!this.ready || !this.buffer || !this.gain) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.buffer;
+    src.connect(this.gain);
+    src.start(0);
   }
 }
 
+// ─── AudioSystem (per-GameView) ──────────────────────────────────────
+
 export class AudioSystem {
   private music = new BackgroundMusic();
-  private pop = new SfxPool(POP_URL, 6);
-  private bomb = new SfxPool(BOMB_URL, 3);
-  private mistake = new SfxPool(MISTAKE_URL, 3);
-  private gameover = new SfxPool(GAMEOVER_URL, 1);
+  private pop = new SfxPlayer(POP_URL, SFX_VOLUME);
+  private bomb = new SfxPlayer(BOMB_URL, SFX_VOLUME);
+  private mistake = new SfxPlayer(MISTAKE_URL, SFX_VOLUME);
+  private gameover = new SfxPlayer(GAMEOVER_URL, SFX_VOLUME);
 
   startMusic(): Promise<void> {
     return this.music.start();
@@ -171,16 +241,15 @@ export class AudioSystem {
   }
 }
 
-// ─── Global UI click pool ─────────────────────────────────────────────
+// ─── Global UI click ─────────────────────────────────────────────────
 //
-// Lives outside AudioSystem because button clicks fire from non-game
-// contexts too (start screen, modals, leaderboard). Lazily constructed
-// on first use so the file is cheap to import in SSR / tests.
-let uiClickPool: SfxPool | null = null;
+// Eagerly constructed at module load so the buffer is fetched + decoded
+// before the user's first click. The Player tolerates being created
+// while the AudioContext is suspended; the resume happens on first
+// gesture and play() works from there on.
+
+const uiClickPlayer = new SfxPlayer(CLICK_URL, CLICK_VOLUME);
 
 export function playUiClick(): void {
-  if (!uiClickPool) {
-    uiClickPool = new SfxPool(CLICK_URL, 4, CLICK_VOLUME);
-  }
-  uiClickPool.play();
+  uiClickPlayer.play();
 }
