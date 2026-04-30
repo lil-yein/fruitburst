@@ -95,7 +95,7 @@ export const PHYSICS = {
   // (vy scales by k, g by k² → peak = vy²/2g unchanged), so the same
   // ratios work at every tier.
   peakHeightMinRatio: 0.80, // weakest launch: peaks 80% of canvas height up
-  peakHeightMaxRatio: 0.90, // strongest launch: peaks 90% up (just shy of top)
+  peakHeightMaxRatio: 0.95, // strongest launch: peaks 95% up (nearly top edge)
   initialVxRange: 380,     // ± px / s horizontal
   spinRange: 4,            // rad / s ± rotation
   // Maximum render dimension (in css px). Used to scale each image while
@@ -116,19 +116,22 @@ export type DifficultyTier = {
 
 // Difficulty steps every 30s with gentler per-step jumps than the
 // original 60s/180s table — keeps escalation continuous instead of
-// shocking. Plateaus at 5 minutes; runs may continue indefinitely.
+// shocking. Plateau at 5 minutes is now meaningfully harder than the
+// 270–300s tier so late-game survival actually demands skill.
 export const DIFFICULTY: DifficultyTier[] = [
-  { untilSec:  30,       spawnIntervalSec: 2.0,  speedMultiplier: 1.00, bombsPerNFruits: 18 },
-  { untilSec:  60,       spawnIntervalSec: 1.8,  speedMultiplier: 1.08, bombsPerNFruits: 16 },
-  { untilSec:  90,       spawnIntervalSec: 1.6,  speedMultiplier: 1.16, bombsPerNFruits: 15 },
-  { untilSec: 120,       spawnIntervalSec: 1.5,  speedMultiplier: 1.22, bombsPerNFruits: 14 },
-  { untilSec: 150,       spawnIntervalSec: 1.4,  speedMultiplier: 1.28, bombsPerNFruits: 13 },
-  { untilSec: 180,       spawnIntervalSec: 1.3,  speedMultiplier: 1.34, bombsPerNFruits: 12 },
-  { untilSec: 210,       spawnIntervalSec: 1.2,  speedMultiplier: 1.40, bombsPerNFruits: 12 },
-  { untilSec: 240,       spawnIntervalSec: 1.15, speedMultiplier: 1.46, bombsPerNFruits: 11 },
-  { untilSec: 270,       spawnIntervalSec: 1.10, speedMultiplier: 1.52, bombsPerNFruits: 10 },
-  { untilSec: 300,       spawnIntervalSec: 1.05, speedMultiplier: 1.58, bombsPerNFruits: 10 },
-  { untilSec: Infinity,  spawnIntervalSec: 1.00, speedMultiplier: 1.60, bombsPerNFruits: 10 },
+  { untilSec:  30,       spawnIntervalSec: 2.00, speedMultiplier: 1.00, bombsPerNFruits: 18 },
+  { untilSec:  60,       spawnIntervalSec: 1.80, speedMultiplier: 1.08, bombsPerNFruits: 16 },
+  { untilSec:  90,       spawnIntervalSec: 1.60, speedMultiplier: 1.16, bombsPerNFruits: 15 },
+  { untilSec: 120,       spawnIntervalSec: 1.50, speedMultiplier: 1.22, bombsPerNFruits: 14 },
+  { untilSec: 150,       spawnIntervalSec: 1.40, speedMultiplier: 1.28, bombsPerNFruits: 13 },
+  { untilSec: 180,       spawnIntervalSec: 1.30, speedMultiplier: 1.34, bombsPerNFruits: 12 },
+  { untilSec: 210,       spawnIntervalSec: 1.20, speedMultiplier: 1.42, bombsPerNFruits: 11 },
+  { untilSec: 240,       spawnIntervalSec: 1.10, speedMultiplier: 1.50, bombsPerNFruits: 10 },
+  { untilSec: 270,       spawnIntervalSec: 1.00, speedMultiplier: 1.58, bombsPerNFruits: 10 },
+  { untilSec: 300,       spawnIntervalSec: 0.95, speedMultiplier: 1.66, bombsPerNFruits: 9  },
+  // Final plateau — ~30% harder than the previous 1.0s / 1.60× / 10
+  // setting on every axis: faster spawns, faster fruit, denser bombs.
+  { untilSec: Infinity,  spawnIntervalSec: 0.85, speedMultiplier: 1.85, bombsPerNFruits: 8  },
 ];
 
 export const SPAWN = {
