@@ -94,8 +94,8 @@ export const PHYSICS = {
   // size. Peak is invariant under the difficulty's k² gravity scaling
   // (vy scales by k, g by k² → peak = vy²/2g unchanged), so the same
   // ratios work at every tier.
-  peakHeightMinRatio: 0.55, // weakest launch: 55% of canvas height
-  peakHeightMaxRatio: 0.80, // strongest launch: 80%
+  peakHeightMinRatio: 0.80, // weakest launch: peaks 80% of canvas height up
+  peakHeightMaxRatio: 0.90, // strongest launch: peaks 90% up (just shy of top)
   initialVxRange: 380,     // ± px / s horizontal
   spinRange: 4,            // rad / s ± rotation
   // Maximum render dimension (in css px). Used to scale each image while
