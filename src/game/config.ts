@@ -115,10 +115,9 @@ export type DifficultyTier = {
 };
 
 // Difficulty steps every 30s with gentler per-step jumps than the
-// original 60s/180s table — keeps escalation continuous instead of
-// shocking. Plateau at 5 minutes is set ~10% harder than the
-// 270–300s tier so the late game still demands focus without
-// becoming the brick wall the +30% version turned into.
+// original 60s/180s table. Final plateau pushed up another ~10% on
+// each axis vs the previous pass; lead-in tiers tightened slightly
+// so the ramp into the new harder plateau stays continuous.
 export const DIFFICULTY: DifficultyTier[] = [
   { untilSec:  30,       spawnIntervalSec: 2.00, speedMultiplier: 1.00, bombsPerNFruits: 18 },
   { untilSec:  60,       spawnIntervalSec: 1.80, speedMultiplier: 1.08, bombsPerNFruits: 16 },
@@ -127,12 +126,12 @@ export const DIFFICULTY: DifficultyTier[] = [
   { untilSec: 150,       spawnIntervalSec: 1.40, speedMultiplier: 1.28, bombsPerNFruits: 13 },
   { untilSec: 180,       spawnIntervalSec: 1.30, speedMultiplier: 1.34, bombsPerNFruits: 12 },
   { untilSec: 210,       spawnIntervalSec: 1.20, speedMultiplier: 1.40, bombsPerNFruits: 12 },
-  { untilSec: 240,       spawnIntervalSec: 1.12, speedMultiplier: 1.46, bombsPerNFruits: 11 },
-  { untilSec: 270,       spawnIntervalSec: 1.05, speedMultiplier: 1.52, bombsPerNFruits: 10 },
-  { untilSec: 300,       spawnIntervalSec: 1.00, speedMultiplier: 1.58, bombsPerNFruits: 10 },
-  // Final plateau — ~10% harder than the 1.00s / 1.58× / 10 lead-in:
-  // 8% faster spawn, 6% faster fruit, 10% denser bombs.
-  { untilSec: Infinity,  spawnIntervalSec: 0.92, speedMultiplier: 1.68, bombsPerNFruits: 9  },
+  { untilSec: 240,       spawnIntervalSec: 1.12, speedMultiplier: 1.48, bombsPerNFruits: 11 },
+  { untilSec: 270,       spawnIntervalSec: 1.04, speedMultiplier: 1.56, bombsPerNFruits: 10 },
+  { untilSec: 300,       spawnIntervalSec: 0.95, speedMultiplier: 1.68, bombsPerNFruits: 9  },
+  // Final plateau — another ~10% harder than 0.95s / 1.68× / 9:
+  // 11% faster spawn, 10% faster fruit, 12% denser bombs.
+  { untilSec: Infinity,  spawnIntervalSec: 0.85, speedMultiplier: 1.85, bombsPerNFruits: 8  },
 ];
 
 export const SPAWN = {
